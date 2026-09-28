@@ -66,7 +66,7 @@ export default {
 			autoCaptureLabel: "Auto-capture",
 			autoCaptureOff: "Désactivée",
 			autoCaptureSwitch: "À la capture d'écran Switch",
-			autoCaptureResults: "À l'écran des résultats",
+			autoCaptureResults: "À l'écran des résultats ou capture",
 			useOverlay: "Connecter l'overlay",
 			lastCapture: "Dernière capture",
 			ocrResult: "OCR : « {ocrText} »",
@@ -76,7 +76,8 @@ export default {
 			noScoreboardDetected: "Aucun tableau de scores détecté — capturez l'écran des résultats.",
 			noPauseScreenDetected: "Échec du remplissage automatique — ouvrez l'écran Pause avec au moins 10 joueurs présents.",
 			ocrFailed: "Échec de l'OCR. Voir la console pour plus de détails.",
-			raceSaved: "Course {number} enregistrée !"
+			raceSaved: "Course {number} enregistrée !",
+			alreadyCaptured: "Cette course a déjà été capturée."
 		},
 
 		overlay: {

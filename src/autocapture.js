@@ -59,9 +59,9 @@ const POP = (() => {
 
 const frameBuffer = document.createElement('canvas');
 const scratch = document.createElement('canvas');
-/** @param {HTMLVideoElement} video */
-export function checkOverlay(video) {
-	const frame = captureFrame(video, frameBuffer);
+/** @param {HTMLVideoElement|HTMLCanvasElement} source video, or a frame already captured from it */
+export function checkOverlay(source) {
+	const frame = source instanceof HTMLCanvasElement ? source : captureFrame(source, frameBuffer);
 	const { canvas, whiteRatio } = preprocessCrop(frame, HOME_ROI, 1, scratch);
 	// icon is about 50:50 black/white, so if the ratio is too low or too high, it's probably not the icon we're looking for
 	if( whiteRatio < 0.4 || whiteRatio > 0.6) return false;

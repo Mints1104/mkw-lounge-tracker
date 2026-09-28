@@ -66,7 +66,7 @@ export default {
 			autoCaptureLabel: "Auto-Capture",
 			autoCaptureOff: "Aus",
 			autoCaptureSwitch: "Bei Switch-Screenshot",
-			autoCaptureResults: "Beim Ergebnisbildschirm",
+			autoCaptureResults: "Bei Ergebnisbildschirm oder Screenshot",
 			useOverlay: "Overlay verbinden",
 			lastCapture: "Letzte Aufnahme",
 			ocrResult: "OCR: „{ocrText}“",
@@ -76,7 +76,8 @@ export default {
 			noScoreboardDetected: "Kein Ergebnisscreen erkannt — bitte den Ergebnisscreen erfassen.",
 			noPauseScreenDetected: "Automatisches Ausfüllen fehlgeschlagen — bitte den Pausebildschirm mit mindestens 10 anwesenden Spielern öffnen.",
 			ocrFailed: "OCR fehlgeschlagen. Details in der Konsole.",
-			raceSaved: "Rennen {number} gespeichert!"
+			raceSaved: "Rennen {number} gespeichert!",
+			alreadyCaptured: "Dieses Rennen wurde bereits aufgenommen."
 		},
 
 		overlay: {

@@ -63,7 +63,7 @@ export default {
 			autoCaptureLabel: "Auto-capture",
 			autoCaptureOff: "Off",
 			autoCaptureSwitch: "On Switch screenshot",
-			autoCaptureResults: "On results screen",
+			autoCaptureResults: "On results screen or screenshot",
 			useOverlay: "Connect overlay",
 			lastCapture: "Last capture",
 			ocrResult: "OCR: “{ocrText}”",
@@ -73,7 +73,8 @@ export default {
 			noScoreboardDetected: "No scoreboard detected — try capturing on the results screen.",
 			noPauseScreenDetected: "Auto-fill failed — ensure Pause screen is open with at least 10 players present.",
 			ocrFailed: "OCR failed. See console for details.",
-			raceSaved: "Race {number} saved!"
+			raceSaved: "Race {number} saved!",
+			alreadyCaptured: "This race was already captured."
 		},
 		overlay: {
 			connected: "Overlay connected",

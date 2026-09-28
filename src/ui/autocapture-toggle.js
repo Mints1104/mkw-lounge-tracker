@@ -3,7 +3,9 @@
 
 import { checkOverlay, countPointsLabels, scanPointsColumn, scanSimilarity } from "../autocapture.js";
 import { captureFrame, captureResultsScreen } from "../capture.js";
+import { t } from "../i18n/i18n.js";
 import { Config } from "../util.js";
+import { info } from "./toast.js";
 
 const configKey = 'autoCapture';
 
@@ -19,9 +21,14 @@ const REARM_AFTER_MS = 3000;
 const RETRY_DELAY_MS = 1000;
 /** Failed attempts on one screen before giving up and telling the user */
 const MAX_ATTEMPTS = 3;
+/** Polls in a row the Switch screenshot icon must be visible for */
+const SCREENSHOT_HITS = 3;
+/** No race (with intro) is shorter than this, so a second capture this soon is the same race again */
+const MIN_RACE_GAP_MS = 30000;
 
 /**
- * Modes: 'off', 'on' (when a Switch screenshot is taken), 'results' (when the results screen appears)
+ * Modes: 'off', 'on' (when a Switch screenshot is taken), 'results' (when the results screen appears,
+ * or when a Switch screenshot is taken in case the results screen wasn't recognised)
  * @param {HTMLSelectElement} select
  * @param {HTMLButtonElement} captureButton
  * @param {HTMLVideoElement} video
@@ -54,12 +61,38 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 		let lastSeenAt = 0;
 		let stableSince = 0;
 		let retryAt = 0;
+		let lastCapturedAt = -Infinity;
+		let screenshotHits = 0;
 		/** @type {PointsColumnScan|null} */
 		let prev = null;
-		return async () => {
-			if( mogi.ended || busy ) return;
+
+		/** @param {boolean} quiet */
+		async function capture(quiet) {
+			const result = await captureResultsScreen(video, mogi, { quiet });
+			if( result === 'ok' ) lastCapturedAt = performance.now();
+			// the manual resolve dialog may have been open for a while
+			lastSeenAt = performance.now();
+			return result;
+		}
+
+		async function poll() {
 			const now = performance.now();
-			const scan = scanPointsColumn(captureFrame(video, frameBuffer));
+			const frame = captureFrame(video, frameBuffer);
+
+			// A Switch screenshot captures straight away, unless this race is already in
+			screenshotHits = checkOverlay(frame) ? screenshotHits + 1 : 0;
+			if( screenshotHits === SCREENSHOT_HITS ) {
+				if( now - lastCapturedAt < MIN_RACE_GAP_MS ) {
+					info(t('capture.alreadyCaptured'));
+					return;
+				}
+				const result = await capture(false);
+				// don't let the results screen detection capture (or ask about) this screen again
+				if( result === 'ok' || result === 'cancelled' ) armed = false;
+				return;
+			}
+
+			const scan = scanPointsColumn(frame);
 			if( scan.rows < MIN_ROWS ) {
 				prev = null;
 				if( !armed && now - lastSeenAt > REARM_AFTER_MS ) {
@@ -69,7 +102,7 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 				return;
 			}
 			lastSeenAt = now;
-			if( !armed || now < retryAt ) return;
+			if( !armed || now < retryAt || now - lastCapturedAt < MIN_RACE_GAP_MS ) return;
 
 			// wait for the rows to stop animating before reading them
 			const stable = prev && scanSimilarity(prev.bits, scan.bits) >= STABLE_SIMILARITY;
@@ -78,26 +111,26 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			if( !stable ) return;
 			if( scan.rows < 12 && now - stableSince < WAIT_FOR_MISSING_ROWS_MS ) return;
 
+			if( await countPointsLabels(scan) < MIN_ROWS ) {
+				// looked like it from a distance, but it's not the results screen
+				retryAt = performance.now() + RETRY_DELAY_MS;
+				return;
+			}
+			attempts++;
+			const result = await capture(attempts < MAX_ATTEMPTS);
+			if( result === 'no_scoreboard' && attempts < MAX_ATTEMPTS ) {
+				retryAt = performance.now() + RETRY_DELAY_MS;
+				return;
+			}
+			// captured, cancelled by the user, or failed for good: leave this screen alone
+			armed = false;
+		}
+
+		return async () => {
+			if( mogi.ended || busy ) return;
 			busy = true;
-			try {
-				if( await countPointsLabels(scan) < MIN_ROWS ) {
-					// looked like it from a distance, but it's not the results screen
-					retryAt = performance.now() + RETRY_DELAY_MS;
-					return;
-				}
-				attempts++;
-				const result = await captureResultsScreen(video, mogi, { quiet: attempts < MAX_ATTEMPTS });
-				if( result === 'no_scoreboard' && attempts < MAX_ATTEMPTS ) {
-					retryAt = performance.now() + RETRY_DELAY_MS;
-					return;
-				}
-				// captured, cancelled by the user, or failed for good: leave this screen alone
-				armed = false;
-			}
-			finally {
-				busy = false;
-				lastSeenAt = performance.now();
-			}
+			try { await poll(); }
+			finally { busy = false; }
 		};
 	}
 

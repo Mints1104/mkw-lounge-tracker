@@ -61,7 +61,7 @@ export default {
 			autoCaptureLabel: '自動キャプチャ',
 			autoCaptureOff: 'オフ',
 			autoCaptureSwitch: 'Switchのスクショ時',
-			autoCaptureResults: 'リザルト画面で',
+			autoCaptureResults: 'リザルト画面またはスクショ時',
 			useOverlay: "オーバーレイに接続",
 			lastCapture: '最新のキャプチャ',
 			ocrResult: 'OCR: 「{ocrText}」',
@@ -71,7 +71,8 @@ export default {
 			noScoreboardDetected: 'リザルト画面を検出できませんでした。リザルト画面をキャプチャしてください。',
 			noPauseScreenDetected: '自動入力に失敗しました。10人以上のプレイヤーがいる状態でポーズ画面を開いてください。',
 			ocrFailed: 'OCRに失敗しました。詳細はコンソールをご確認ください。',
-			raceSaved: 'レース {number} を保存しました！'
+			raceSaved: 'レース {number} を保存しました！',
+			alreadyCaptured: 'このレースはすでにキャプチャ済みです。'
 		},
 
 		overlay: {
