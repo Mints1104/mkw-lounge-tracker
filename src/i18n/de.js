@@ -35,7 +35,7 @@ export default {
 				"10-Spieler-Rennen sind gültig; 9 oder weniger ⇒ Neustart.",
 				"Unterstützt FFA-, 2v2-, 3v3-, 4v4- und 6v6-Lounge-Queue-Formate.",
 				"Alles bleibt lokal in deinem Browser.",
-				"Auto-Capture: erkennt den Ergebnisscreen der Switch und speichert automatisch."
+				"Auto-Capture: nimmt automatisch auf, sobald der Ergebnisbildschirm erscheint oder du auf der Switch einen Screenshot machst."
 			],
 			aboutLabel: "Über",
 			about: [
@@ -64,6 +64,9 @@ export default {
 			captureButton: "📸 Aufnehmen & OCR",
 			localSaveReminder: "⚠️ Mache zusätzlich einen Screenshot auf der Switch!",
 			autoCaptureLabel: "Auto-Capture",
+			autoCaptureOff: "Aus",
+			autoCaptureSwitch: "Bei Switch-Screenshot",
+			autoCaptureResults: "Beim Ergebnisbildschirm",
 			useOverlay: "Overlay verbinden",
 			lastCapture: "Letzte Aufnahme",
 			ocrResult: "OCR: „{ocrText}“",

@@ -79,10 +79,14 @@ export class Roster {
 			return roster;
 		}
 
-		const tier = first?.match(/Tier (\w+)$/);
-		if( !tier) throw new Error(t('rosterSetup.badLine', { line:first }));
-		const roster = new Roster(tier[1]);
 		const re = /^(\d+)\.\s+(.*?)\s+\((\d+)\s*MMR\)$/;
+		// The "Room X MMR: Y - Tier Z" header is optional; without it the tier is unknown
+		const tier = first?.match(/Tier (\w+)$/);
+		if( !tier && first !== undefined) {
+			if( !re.test(first)) throw new Error(t('rosterSetup.badLine', { line:first }));
+			lines.unshift(first);
+		}
+		const roster = new Roster(tier?.[1] ?? '');
 		for( const line of lines) {
 			const m = re.exec(line);
 			if(!m) throw new Error(t('rosterSetup.badLine', { line }));

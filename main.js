@@ -25,7 +25,7 @@ async function main() {
 	const video = /** @type {HTMLVideoElement} */(document.getElementById('preview'));
 	const cameraSelect = /** @type {HTMLSelectElement} */(document.getElementById('camera'));
 	const captureBtn = /** @type {HTMLButtonElement} */(document.getElementById('capture'));
-	const autoCaptureToggle = /** @type {HTMLInputElement} */(document.getElementById('autoCapture'));
+	const autoCaptureSelect = /** @type {HTMLSelectElement} */(document.getElementById('autoCapture'));
 	const useOverlayToggle = /** @type {HTMLInputElement} */(document.getElementById('useOverlay'));
 	const outputOl = /** @type {HTMLOListElement} */(document.getElementById('output'));
 	const scoreTable = /** @type {HTMLTableElement} */(document.getElementById('scoreTable'));
@@ -42,7 +42,7 @@ async function main() {
 	const mogi = new Mogi(roster);
 	setupCameraList(cameraSelect, video);
 	setupCaptureButton(captureBtn, video, outputOl, mogi);
-	setupAutoCapture(autoCaptureToggle, captureBtn, video, mogi);
+	setupAutoCapture(autoCaptureSelect, captureBtn, video, mogi);
 	setupOverlay(useOverlayToggle, mogi);
 	connectScoreboard(scoreTable, video, mogi);
 	connectScoreboardScreenshotter(snapshotButton, scoreTable);

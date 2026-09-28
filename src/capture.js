@@ -79,8 +79,10 @@ export function snapshotBlobUrlFromCanvas(base) {
  * Capture a frame and OCR the results screen.
  * @param {HTMLVideoElement} video
  * @param {Mogi} mogi
+ * @param {{quiet?:boolean}} [options] quiet: don't warn when no scoreboard is found (the caller will retry)
+ * @returns {Promise<'ok'|'cancelled'|'no_scoreboard'|'error'>}
  */
-export async function captureResultsScreen(video, mogi) {
+export async function captureResultsScreen(video, mogi, { quiet = false } = {}) {
 	try {
 		const base = captureFrame(video);
 		// this may throw MANUAL_CANCELLED or NO_SCOREBOARD
@@ -90,23 +92,24 @@ export async function captureResultsScreen(video, mogi) {
 		const race = new Race(Date.now(), placements, snapshotUrl);
 		mogi.roster.lockIGNsFromPlacements(placements);
 		mogi.addRace(race);
+		return 'ok';
 	} catch (e) {
 		// If the user canceled manual resolve, just abort quietly
 		if (/** @type {any} */(e)?.code === 'MANUAL_CANCELLED') {
 			console.log('Capture canceled by user.');
 			info(t('capture.captureCancelled'));
-			return;
+			return 'cancelled';
 		}
 		// If no scoreboard found, warn the user
 		if (/** @type {any} */(e)?.code === 'NO_SCOREBOARD') {
 			console.log('No scoreboard detected in frame.');
-			error(t('capture.noScoreboardDetected'));
-			return;
+			if( !quiet) error(t('capture.noScoreboardDetected'));
+			return 'no_scoreboard';
 		}
 		// Otherwise, surface the error
 		console.error(e);
 		error(t('capture.ocrFailed'));
-		return;
+		return 'error';
 	}
 }
 

@@ -35,7 +35,7 @@ export default {
 				"Les courses à 10 joueurs sont valides ; 9 ou moins ⇒ à refaire.",
 				"Prend en charge les formats FFA, 2v2, 3v3, 4v4 et 6v6 de la file Lounge.",
 				"Tout reste local dans votre navigateur.",
-				"Auto-capture : détecte la capture d'écran sur la Switch et l'enregistre automatiquement."
+				"Auto-capture : capture automatiquement dès que l'écran des résultats s'affiche, ou quand vous faites une capture d'écran sur la Switch."
 			],
 			aboutLabel: "À propos",
 			about: [
@@ -64,6 +64,9 @@ export default {
 			captureButton: "📸 Capturer & OCR",
 			localSaveReminder: "⚠️ Pensez aussi à faire une capture d'écran sur la Switch !",
 			autoCaptureLabel: "Auto-capture",
+			autoCaptureOff: "Désactivée",
+			autoCaptureSwitch: "À la capture d'écran Switch",
+			autoCaptureResults: "À l'écran des résultats",
 			useOverlay: "Connecter l'overlay",
 			lastCapture: "Dernière capture",
 			ocrResult: "OCR : « {ocrText} »",

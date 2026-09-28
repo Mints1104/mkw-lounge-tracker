@@ -45,7 +45,7 @@ function formatResults(mogi, mode="q") {
 	const scores = mogi.calculatePlayerScores();
 	const scoresArray = [...scores.values()];
 	const roster = [...mogi.roster];
-	const marker = mogi.roster.tier;
+	const marker = mogi.roster.tier || '<tier>'; // roster was pasted without its "Tier X" header
 	return `!submit ${mogi.playersPerTeam} ${marker}\n` + roster.map((p,i) => {
 		const score = scores.get(p.id) ?? 0;
 		const rank = scoresArray.filter(x => x > score).length + 1;
