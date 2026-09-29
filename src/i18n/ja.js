@@ -48,6 +48,25 @@ export default {
 			rosterLoaded: '一覧を読み込みました！'
 		},
 
+		savedMogis: {
+			title: "保存されたモギ",
+			about: "モギはプレイ中にこのブラウザへ自動保存されます。途中から再開したり、後で結果を確認したりできます。最新{count}件まで保存されます。",
+			resumeLast: "▶ モギを再開（{count}/{total}レース）",
+			resume: "再開",
+			open: "開く",
+			delete: "削除",
+			confirmDelete: "このモギを削除しますか？元に戻せません。",
+			deleted: "モギを削除しました",
+			inProgress: "進行中",
+			finished: "終了",
+			races: "{count}/{total}レース",
+			ffa: "FFA",
+			war: "War",
+			tier: "Tier {tier}",
+			resumed: "モギを再開しました（{count}/{total}レース）",
+			notFound: "このモギを開けませんでした。",
+			saveFailed: "このモギをブラウザに保存できませんでした。保存されたモギには表示されません。"
+		},
 		capture: {
 			camera: 'カメラ',
 			noCameras: '（カメラが見つかりません）',

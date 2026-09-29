@@ -53,6 +53,25 @@ export default {
 			rosterLoaded: "Liste chargée !"
 		},
 
+		savedMogis: {
+			title: "Mogis enregistrés",
+			about: "Les mogis sont enregistrés dans ce navigateur pendant que vous jouez : vous pouvez reprendre là où vous en étiez ou revenir chercher les résultats. Les {count} derniers sont conservés.",
+			resumeLast: "▶ Reprendre le mogi ({count}/{total} courses)",
+			resume: "Reprendre",
+			open: "Ouvrir",
+			delete: "Supprimer",
+			confirmDelete: "Supprimer ce mogi ? Cette action est irréversible.",
+			deleted: "Mogi supprimé",
+			inProgress: "En cours",
+			finished: "Terminé",
+			races: "{count}/{total} courses",
+			ffa: "FFA",
+			war: "War",
+			tier: "Tier {tier}",
+			resumed: "Mogi repris ({count}/{total} courses)",
+			notFound: "Impossible d'ouvrir ce mogi.",
+			saveFailed: "Impossible d'enregistrer ce mogi dans le navigateur : il n'apparaîtra pas dans les mogis enregistrés."
+		},
 		capture: {
 			camera: "Caméra",
 			noCameras: "(Aucune caméra trouvée)",

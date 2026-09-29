@@ -52,6 +52,19 @@ export class Roster {
 		}
 	}
 
+	/**
+	 * Rebuild a saved roster.
+	 * @param {{tier:string, isWar:boolean, warTags:string[]}} meta
+	 * @param {Player[]} players
+	 */
+	static restore({ tier, isWar, warTags }, players) {
+		const roster = new Roster(tier);
+		roster.#isWar = isWar;
+		roster.#warTags = [...warTags];
+		players.forEach(p => roster.add(p));
+		return roster;
+	}
+
 	/** @param {string} input */
 	static parse(input) {
 		const lines = input.split(/\r?\n/).map(l => l.trim()).filter(Boolean);

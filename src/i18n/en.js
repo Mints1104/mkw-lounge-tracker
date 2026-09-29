@@ -50,6 +50,25 @@ export default {
 			badLine: "Bad line: “{line}”",
 			rosterLoaded: "Roster loaded!"
 		},
+		savedMogis: {
+			title: "Saved mogis",
+			about: "Mogis are saved in this browser as you play, so you can pick up where you left off or come back for the results. The last {count} are kept.",
+			resumeLast: "▶ Resume mogi ({count}/{total} races)",
+			resume: "Resume",
+			open: "Open",
+			delete: "Delete",
+			confirmDelete: "Delete this mogi? This can't be undone.",
+			deleted: "Mogi deleted",
+			inProgress: "In progress",
+			finished: "Finished",
+			races: "{count}/{total} races",
+			ffa: "FFA",
+			war: "War",
+			tier: "Tier {tier}",
+			resumed: "Mogi resumed ({count}/{total} races)",
+			notFound: "Couldn't open that mogi.",
+			saveFailed: "Couldn't save this mogi in the browser, so it won't be in your saved mogis."
+		},
 		capture: {
 			camera: "Camera",
 			noCameras: "(No cameras found)",

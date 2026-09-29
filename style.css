@@ -382,6 +382,49 @@ dialog::backdrop {
 	font-size: 12px;
 }
 
+.badge--live {
+	background: #3b2b0a;
+	color: #ffd58a;
+}
+
+.badge--done {
+	background: #0f3a15;
+	color: #eaffea;
+}
+
+/* Saved mogis */
+.saved-mogis {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 8px;
+}
+
+.saved-mogis li {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	background: #141414;
+	border: 1px solid #242424;
+	border-radius: 12px;
+	padding: 8px 10px;
+}
+
+.saved-mogi__info {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.saved-mogi__info>div {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 textarea {
 	width: 100%;
 	min-height: 150px;

@@ -53,6 +53,25 @@ export default {
 			rosterLoaded: "Liste geladen!"
 		},
 
+		savedMogis: {
+			title: "Gespeicherte Mogis",
+			about: "Mogis werden beim Spielen in diesem Browser gespeichert, damit du dort weitermachen kannst, wo du aufgehört hast, oder später die Ergebnisse abrufen kannst. Die letzten {count} werden aufbewahrt.",
+			resumeLast: "▶ Mogi fortsetzen ({count}/{total} Rennen)",
+			resume: "Fortsetzen",
+			open: "Öffnen",
+			delete: "Löschen",
+			confirmDelete: "Diesen Mogi löschen? Das kann nicht rückgängig gemacht werden.",
+			deleted: "Mogi gelöscht",
+			inProgress: "Läuft",
+			finished: "Beendet",
+			races: "{count}/{total} Rennen",
+			ffa: "FFA",
+			war: "War",
+			tier: "Tier {tier}",
+			resumed: "Mogi fortgesetzt ({count}/{total} Rennen)",
+			notFound: "Dieser Mogi konnte nicht geöffnet werden.",
+			saveFailed: "Dieser Mogi konnte nicht im Browser gespeichert werden und erscheint daher nicht unter den gespeicherten Mogis."
+		},
 		capture: {
 			camera: "Kamera",
 			noCameras: "(Keine Kamera gefunden)",

@@ -27,10 +27,15 @@ export class Mogi extends EventTarget {
 	/** @param {number} seed */
 	teamBySeed(seed) { return this.#teams.find(t => t.seed === seed); }
 
-	/** @param {Roster} roster */
-	constructor(roster) {
+	/**
+	 * @param {Roster} roster
+	 * @param {{startTime?:number, races?:Race[]}} [saved] to continue a saved mogi
+	 */
+	constructor(roster, { startTime = Date.now(), races = [] } = {}) {
 		super();
 		this.#roster = roster;
+		this.#startTime = startTime;
+		this.#races = [...races];
 		const players = [...roster];
 		this.playersPerTeam = players.filter(p => p.seed === 1).length;
 		if( this.playersPerTeam > 1) {
