@@ -184,11 +184,15 @@ function solveAssignmentDP(cost) {
 	return assign;
 }
 
-let _worker = /** @type {any} */(null);
-async function getWorker() {
-	if (_worker) return _worker;
-	_worker = await Tesseract.createWorker('eng', 1, { logger: () => { } }, { load_system_dawg: 'F', load_freq_dawg: 'F' });
-	return _worker;
+/** @type {Promise<any>|null} */
+let _worker = null;
+function getWorker() {
+	return _worker ??= Tesseract.createWorker('eng', 1, { logger: () => { } }, { load_system_dawg: 'F', load_freq_dawg: 'F' });
+}
+
+/** Load the OCR engine ahead of time, so the first capture isn't held up by it */
+export function preloadOcr() {
+	return getWorker();
 }
 
 const scratch = document.createElement('canvas');

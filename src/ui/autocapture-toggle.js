@@ -1,7 +1,7 @@
 /** @typedef {import("../mogi.js").Mogi} Mogi */
 /** @typedef {import("../autocapture.js").PointsColumnScan} PointsColumnScan */
 
-import { checkOverlay, countPointsLabels, scanPointsColumn, scanSimilarity } from "../autocapture.js";
+import { checkOverlay, countPointsLabels, preloadResultsDetection, scanPointsColumn, scanSimilarity } from "../autocapture.js";
 import { captureFrame, captureResultsScreen } from "../capture.js";
 import { t } from "../i18n/i18n.js";
 import { Config } from "../util.js";
@@ -27,8 +27,8 @@ const SCREENSHOT_HITS = 3;
 const MIN_RACE_GAP_MS = 30000;
 
 /**
- * Modes: 'off', 'on' (when a Switch screenshot is taken), 'results' (when the results screen appears,
- * or when a Switch screenshot is taken in case the results screen wasn't recognised)
+ * Modes: 'off', 'on' (when a Switch screenshot is taken), 'results' (when the results screen appears),
+ * 'both' (when the results screen appears, or when a Switch screenshot is taken in case it wasn't recognised)
  * @param {HTMLSelectElement} select
  * @param {HTMLButtonElement} captureButton
  * @param {HTMLVideoElement} video
@@ -53,7 +53,8 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 		};
 	}
 
-	function pollForResultsScreen() {
+	/** @param {boolean} withScreenshots also capture when a Switch screenshot is taken */
+	function pollForResultsScreen(withScreenshots) {
 		const frameBuffer = document.createElement('canvas');
 		let busy = false;
 		let armed = true;
@@ -80,7 +81,7 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			const frame = captureFrame(video, frameBuffer);
 
 			// A Switch screenshot captures straight away, unless this race is already in
-			screenshotHits = checkOverlay(frame) ? screenshotHits + 1 : 0;
+			screenshotHits = withScreenshots && checkOverlay(frame) ? screenshotHits + 1 : 0;
 			if( screenshotHits === SCREENSHOT_HITS ) {
 				if( now - lastCapturedAt < MIN_RACE_GAP_MS ) {
 					info(t('capture.alreadyCaptured'));
@@ -139,7 +140,10 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 		clearInterval(interval);
 		interval = 0;
 		if( mode === 'on' ) interval = setInterval(pollForScreenshot(), 200);
-		if( mode === 'results' ) interval = setInterval(pollForResultsScreen(), 250);
+		if( mode === 'results' || mode === 'both' ) {
+			interval = setInterval(pollForResultsScreen(mode === 'both'), 250);
+			preloadResultsDetection().catch(err => console.error('Could not load OCR', err));
+		}
 		captureButton.disabled = mode !== 'off';
 		Config.set(configKey, mode);
 	}

@@ -1,6 +1,6 @@
 import Tesseract from 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js';
 import { captureFrame, preprocessCrop } from "./capture.js";
-import { OCR_GRID } from "./ocr.js";
+import { OCR_GRID, preloadOcr } from "./ocr.js";
 import { ctx2d, popcount } from "./util.js";
 
 const HOME_ROI = { x: 506, y: 45, w: 40, h:40 };
@@ -167,16 +167,23 @@ export function scanSimilarity(a, b) {
 	return either ? both / either : 1;
 }
 
-let _pointsWorker = /** @type {any} */(null);
-async function getPointsWorker() {
-	if (_pointsWorker) return _pointsWorker;
-	// separate worker, so its settings never clash with the name OCR running at the same time
-	_pointsWorker = await Tesseract.createWorker('eng', 1, { logger: () => { } }, { load_system_dawg: 'F', load_freq_dawg: 'F' });
-	await _pointsWorker.setParameters({
-		tessedit_char_whitelist: '+0123456789',
-		tessedit_pageseg_mode: '6' // SINGLE_BLOCK
-	});
-	return _pointsWorker;
+/** @type {Promise<any>|null} */
+let _pointsWorker = null;
+function getPointsWorker() {
+	return _pointsWorker ??= (async () => {
+		// separate worker, so its settings never clash with the name OCR running at the same time
+		const worker = await Tesseract.createWorker('eng', 1, { logger: () => { } }, { load_system_dawg: 'F', load_freq_dawg: 'F' });
+		await worker.setParameters({
+			tessedit_char_whitelist: '+0123456789',
+			tessedit_pageseg_mode: '6' // SINGLE_BLOCK
+		});
+		return worker;
+	})();
+}
+
+/** Load both OCR engines ahead of time, so the first results screen isn't missed while they load */
+export function preloadResultsDetection() {
+	return Promise.all([getPointsWorker(), preloadOcr()]);
 }
 
 const pointsCanvas = document.createElement('canvas');
