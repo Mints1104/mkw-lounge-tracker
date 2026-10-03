@@ -57,6 +57,7 @@ export default {
 		},
 
 		savedMogis: {
+			restoredOne: "1 Mogi aus der Sicherung wiederhergestellt",
 			empty: "Noch keine gespeicherten Mogis.",
 			backup: "⬇ Sichern",
 			restore: "⬆ Sicherung laden",
@@ -84,6 +85,10 @@ export default {
 			saveFailed: "Dieser Mogi konnte nicht im Browser gespeichert werden und erscheint daher nicht unter den gespeicherten Mogis."
 		},
 		log: {
+			savedRecovered: "Aus dem vorhin gesehenen Ergebnisbildschirm gespeichert (er konnte nicht rechtzeitig gelesen werden)",
+			screenshotNotResults: "Switch-Screenshot nicht verwendet: er war nicht auf dem Ergebnisbildschirm, und kein kürzlich gesehener Ergebnisbildschirm ist verfügbar",
+			racesMissing: "Die Punktestände im Spiel ergeben {counted} Rennen, hier sind aber {recorded} erfasst: es fehlen Rennen",
+			matchedByLooksOne: "Einen unlesbaren Namen anhand seines Aussehens in früheren Rennen erkannt",
 			matchedByLooks: "{count} unlesbare Namen anhand ihres Aussehens in früheren Rennen erkannt",
 			feedLost: "Das Kamerabild ist weg (Capture-Karte getrennt oder virtuelle OBS-Kamera gestoppt): Auto-Capture sieht nichts mehr",
 			feedFrozen: "Das Kamerabild hat sich seit 30 Sekunden nicht verändert: es scheint eingefroren",

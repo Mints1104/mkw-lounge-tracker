@@ -8,6 +8,8 @@
 /** @typedef {import("./player.js").Player} Player */
 /** @typedef {import("./race.js").Race} Race */
 
+import { POINTS_BY_PLACEMENT } from "./race.js";
+
 /**
  * @typedef {Object} TotalsMismatch
  * @prop {string} name
@@ -173,4 +175,17 @@ export function checkStandings(mogi, shown) {
 	}
 	// one misread total is fine
 	return matched >= read.length - 1 ? 'ok' : 'missed';
+}
+
+/** What a race with all 12 finishing is worth: 15 + 12 + 10 + ... + 1 */
+const FULL_RACE_POINTS = POINTS_BY_PLACEMENT.reduce((a, b) => a + b, 0);
+
+/**
+ * How many races the game has counted, going by the totals on a results screen plus that race's points.
+ * Races with fewer players, and players who left, make it come out low, never high.
+ * @param {Race} race
+ */
+export function gameRaceCount(race) {
+	const points = race.gameScores.reduce((sum, g) => sum + (g.total != null && g.points != null ? g.total + g.points : 0), 0);
+	return Math.round(points / FULL_RACE_POINTS);
 }

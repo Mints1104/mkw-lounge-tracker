@@ -164,6 +164,15 @@ export function scanPointsColumn(frame) {
 }
 
 /**
+ * The names column, to tell when the names have stopped moving.
+ * @param {HTMLCanvasElement} frame
+ * @returns {PointsColumnScan}
+ */
+export function scanNamesColumn(frame) {
+	return scanColumn(frame, OCR_GRID.nameRects);
+}
+
+/**
  * Cheap check for the standings that follow the results: count the rows of the totals column that hold a number.
  * @param {HTMLCanvasElement} frame
  * @returns {PointsColumnScan}
@@ -278,7 +287,8 @@ export async function countPointsLabels(scan) {
 	const { w, h } = rects[0];
 	const rows = rects.map((_, i) => scan.bits.subarray(i * w * h, (i + 1) * w * h));
 	const worker = await getPointsWorker();
-	const { data } = await worker.recognize(renderForOcr(rows, w, h, ocrCanvas));
+	// a data URL: a canvas would be turned into a blob, which the browser holds up while the page is in the background
+	const { data } = await worker.recognize(renderForOcr(rows, w, h, ocrCanvas).toDataURL());
 	return String(data?.text ?? '').split('\n').filter(line => /^\+\d{1,2}$/.test(line.replace(/\s+/g, ''))).length;
 }
 
@@ -314,7 +324,7 @@ async function readColumn(frame, rects, pattern) {
 	const worker = await getPointsWorker();
 	const { w, h } = rects[0];
 	const rows = rects.map(r => binarize(ctx, r)).map(r => r.hasText ? r.bits : new Uint8Array(w * h));
-	const { data } = await worker.recognize(renderForOcr(rows, w, h, ocrCanvas));
+	const { data } = await worker.recognize(renderForOcr(rows, w, h, ocrCanvas).toDataURL());
 	/** @type {(number|null)[]} */
 	const values = rects.map(() => null);
 	for (const line of data?.lines ?? []) {

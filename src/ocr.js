@@ -205,12 +205,13 @@ const scratch = document.createElement('canvas');
  * @param {Roster} roster
  * @param {boolean} teamMode
  * @param {Object} [options]
+ * @param {boolean} [options.resultsScreen] the picture is known to be the results screen: names that can't be read don't make it "no scoreboard"
  * @param {(count:number) => void} [options.onAskUser] called before asking the user to match players
  * @param {NamePictures} [options.namePictures] to recognise names that can't be read by how they looked before
  * @param {(count:number) => void} [options.onMatchedByLooks] called when names were recognised that way
  * @returns {Promise<Placement[]>}
  */
-export async function processResultsScreen(canvas, nameRects, roster, teamMode=false, { onAskUser, namePictures, onMatchedByLooks } = {}) {
+export async function processResultsScreen(canvas, nameRects, roster, teamMode=false, { resultsScreen = false, onAskUser, namePictures, onMatchedByLooks } = {}) {
 	const dbg = isDebugMode() ? startNewDebugReport() : null;
 	const whitelist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -',
 		levCosts = { ins: 3, del: 1, sub: 2 },
@@ -255,7 +256,8 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 			continue;
 		}
 		rowBits[idx] = toBits(img);
-		const { data } = await worker.recognize(img);
+		// a data URL: a canvas would be turned into a blob, which the browser holds up while the page is in the background
+		const { data } = await worker.recognize(img.toDataURL());
 		const best = (data?.text ?? '').replace(/\s+/g, ' ').trim();
 		const conf = (data && Number.isFinite(data.confidence)) ? data.confidence : 0;
 		rawRows.push({ text: best, confidence: conf, hasText: true });
@@ -274,8 +276,9 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 	const placements = rawRows.map((row, i) => new Placement(i + 1, null, row.text, row.text, Math.round(row.confidence), false));
 	const normRows = rawRows.map(r => normalizeName(r.text));
 
-	// Early exit if 2+ blanks
-	if (normRows.filter(s => !s).length > 2) {
+	// Early exit if 3+ blanks (on what's known to be the results screen, only rows with nothing on them count)
+	const blanks = resultsScreen ? rawRows.filter(r => !r.hasText).length : normRows.filter(s => !s).length;
+	if (blanks > 2) {
 		if( dbg ) dbg.outcome = 'no_scoreboard';
 		const err = new Error('No scoreboard detected');
 		// @ts-ignore add a code for easy identification

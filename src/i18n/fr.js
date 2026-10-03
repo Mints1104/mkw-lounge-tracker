@@ -57,6 +57,7 @@ export default {
 		},
 
 		savedMogis: {
+			restoredOne: "1 mogi restauré depuis la sauvegarde",
 			empty: "Aucun mogi enregistré pour l'instant.",
 			backup: "⬇ Sauvegarder",
 			restore: "⬆ Restaurer une sauvegarde",
@@ -84,6 +85,10 @@ export default {
 			saveFailed: "Impossible d'enregistrer ce mogi dans le navigateur : il n'apparaîtra pas dans les mogis enregistrés."
 		},
 		log: {
+			savedRecovered: "Enregistrée à partir de l'écran des résultats vu plus tôt (il n'a pas pu être lu à temps)",
+			screenshotNotResults: "Capture d'écran Switch non utilisée : elle n'était pas sur l'écran des résultats, et aucun écran des résultats récent n'est disponible",
+			racesMissing: "Les totaux du jeu correspondent à {counted} courses, mais {recorded} sont enregistrées ici : il manque des courses",
+			matchedByLooksOne: "Un nom illisible reconnu d'après son apparence dans les courses précédentes",
 			matchedByLooks: "{count} noms illisibles reconnus d'après leur apparence dans les courses précédentes",
 			feedLost: "Le flux de la caméra est perdu (carte de capture débranchée ou caméra virtuelle d'OBS arrêtée) : l'auto-capture ne voit plus rien",
 			feedFrozen: "L'image de la caméra n'a pas changé depuis 30 secondes : le flux semble figé",

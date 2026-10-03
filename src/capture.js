@@ -4,7 +4,7 @@ import { countRedoPlayers, MIN_POINTS_ROWS, readGameScores, scanPointsColumn } f
 import { t } from "./i18n/i18n.js";
 import { nameBits, OCR_GRID, processResultsScreen } from "./ocr.js";
 import { Race } from "./race.js";
-import { checkTotals, redoBefore } from "./totals-check.js";
+import { checkTotals, gameRaceCount, redoBefore } from "./totals-check.js";
 import { attention, playComplete, playSaved } from "./ui/alerts.js";
 import { formatLogEntry } from "./ui/mogi-log.js";
 import { error, info, success } from "./ui/toast.js";
@@ -70,50 +70,52 @@ export function preprocessCrop(src, r, scale=1, scratch=document.createElement('
 
 /**
  * Turn a pre-captured canvas into a Blob URL.
+ * Not with toBlob: the browser can hold that up for a long time while the page is in the background.
  * @param {HTMLCanvasElement} base
  * @returns {Promise<string>}
  */
-export function snapshotBlobUrlFromCanvas(base) {
-	return new Promise((resolve, reject) => {
-		base.toBlob(b => {
-			b ? resolve(URL.createObjectURL(b)) : reject(new Error('toBlob failed'));
-		}, 'image/jpeg', 0.85);
-	});
+export async function snapshotBlobUrlFromCanvas(base) {
+	const blob = await (await fetch(base.toDataURL('image/jpeg', 0.85))).blob();
+	return URL.createObjectURL(blob);
 }
 
 /** A capture is running (the Capture button and auto-capture can both start one) */
 let capturing = false;
 
 /** @type {Record<CaptureSource, string>} */
-const SAVED_LOG_KEYS = { auto: 'savedAuto', screenshot: 'savedScreenshot', manual: 'savedManual' };
+const SAVED_LOG_KEYS = { auto: 'savedAuto', screenshot: 'savedScreenshot', manual: 'savedManual', recovered: 'savedRecovered' };
 
 /**
  * Capture a frame and OCR the results screen.
- * @typedef {'auto'|'screenshot'|'manual'} CaptureSource what triggered the capture
+ * @typedef {'auto'|'screenshot'|'manual'|'recovered'} CaptureSource what triggered the capture
  * @param {HTMLVideoElement} video
  * @param {Mogi} mogi
- * @param {{quiet?:boolean, source?:CaptureSource}} [options] quiet: don't warn when no scoreboard is found (the caller will retry)
+ * @param {Object} [options]
+ * @param {boolean} [options.quiet] don't warn when no scoreboard is found (the caller will retry)
+ * @param {CaptureSource} [options.source]
+ * @param {HTMLCanvasElement} [options.frame] read this picture rather than the camera's current one
  * @returns {Promise<'ok'|'cancelled'|'no_scoreboard'|'redo'|'error'|'busy'>} busy: another capture was still running
  */
-export async function captureResultsScreen(video, mogi, { quiet = false, source = 'manual' } = {}) {
+export async function captureResultsScreen(video, mogi, { quiet = false, source = 'manual', frame } = {}) {
 	if( capturing ) return 'busy';
 	capturing = true;
 	const raceNumber = mogi.size + 1;
 	/** @type {HTMLCanvasElement|null} */
 	let base = null;
 	try {
-		base = captureFrame(video);
+		base = frame ?? captureFrame(video);
 		const teamMode = mogi.playersPerTeam >= 3;
+		// The "+N" column is only on the results screen, not on the standings that come after it
+		const isResultsScreen = scanPointsColumn(base).rows >= MIN_POINTS_ROWS;
 		// this may throw MANUAL_CANCELLED or NO_SCOREBOARD
 		const placements = await processResultsScreen(base, OCR_GRID.nameRects, mogi.roster, teamMode, {
+			resultsScreen: isResultsScreen,
 			onAskUser: count => attention(mogi, { level: 'warning', race: raceNumber, key: 'askedToMatch', vars: { count } }),
 			namePictures: namePicturesFrom(mogi, teamMode),
-			onMatchedByLooks: count => mogi.addLog({ level: 'info', race: raceNumber, key: 'matchedByLooks', vars: { count } })
+			onMatchedByLooks: count => mogi.addLog({ level: 'info', race: raceNumber, key: count === 1 ? 'matchedByLooksOne' : 'matchedByLooks', vars: { count } })
 		});
 		// Only if successful, make the snapshot and push the race
 		const snapshotUrl = await snapshotBlobUrlFromCanvas(base);
-		// The "+N" column is only on the results screen, not on the standings that come after it
-		const isResultsScreen = scanPointsColumn(base).rows >= MIN_POINTS_ROWS;
 		const gameScores = isResultsScreen ? await readGameScores(base).catch(err => { console.error(err); return []; }) : [];
 		const race = new Race(Date.now(), placements, snapshotUrl, gameScores);
 		mogi.roster.lockIGNsFromPlacements(placements);
@@ -232,6 +234,15 @@ function reportTotals(mogi, index) {
 		const details = check.mismatches.slice(0, 3).map(m => t('log.totalsDetail', m)).join('; ');
 		const races = check.from === check.to ? t('log.raceRef', { number: check.to }) : t('log.raceRange', { from: check.from, to: check.to });
 		attention(mogi, { level: 'warning', race, key: check.result === 'missed' ? 'totalsMissed' : 'totalsWrong', vars: { races, details } });
+	}
+
+	// The game's totals also tell how many races it has counted: more than are recorded here means some are missing
+	const redos = mogi.log.filter(e => e.key === 'redoRace' || e.key === 'markedRedo').length;
+	const counted = gameRaceCount(mogi.races[index]);
+	const missing = counted - mogi.size - redos;
+	const alreadySaid = mogi.log.findLast(e => e.key === 'racesMissing')?.vars?.['missing'];
+	if( missing > 0 && missing !== alreadySaid ) {
+		attention(mogi, { level: 'warning', race, key: 'racesMissing', vars: { counted, recorded: mogi.size, missing } });
 	}
 }
 

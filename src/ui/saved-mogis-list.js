@@ -146,7 +146,7 @@ export function requestSavedMogi({ panel, about, list, resumeLastButton, backupB
 				return null;
 			});
 			if (count === null) return;
-			if (count) success(t('savedMogis.restored', { count }));
+			if (count) success(t(count === 1 ? 'savedMogis.restoredOne' : 'savedMogis.restored', { count }));
 			else info(t('savedMogis.nothingToRestore'));
 			await refresh();
 		}

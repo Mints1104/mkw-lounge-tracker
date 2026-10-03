@@ -54,6 +54,7 @@ export default {
 			rosterLoaded: "Roster loaded!"
 		},
 		savedMogis: {
+			restoredOne: "1 mogi restored from the backup",
 			empty: "No saved mogis yet.",
 			backup: "⬇ Back up",
 			restore: "⬆ Restore backup",
@@ -81,6 +82,10 @@ export default {
 			saveFailed: "Couldn't save this mogi in the browser, so it won't be in your saved mogis."
 		},
 		log: {
+			savedRecovered: "Saved from the results screen seen earlier (it couldn't be read in time)",
+			screenshotNotResults: "Switch screenshot not used: it wasn't on the results screen, and no recent results screen was seen to use instead",
+			racesMissing: "The game's totals add up to {counted} races, but {recorded} are recorded here: races are missing",
+			matchedByLooksOne: "Recognised a name that couldn't be read by how it looked in earlier races",
 			matchedByLooks: "Recognised {count} names that couldn't be read by how they looked in earlier races",
 			feedLost: "The camera feed was lost (capture card unplugged, or OBS's virtual camera stopped): auto-capture can't see anything",
 			feedFrozen: "The camera picture hasn't changed for 30 seconds: the feed seems frozen",
