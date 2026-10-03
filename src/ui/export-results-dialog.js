@@ -10,7 +10,7 @@ function makeDialog() {
 	dialog.innerHTML = `
 		<form method="dialog" class="modal">
 			<h3>${t('exportScores.title')}</h3>
-			<textarea rows="${ROSTER_SIZE+1}" readonly></textarea>
+			<textarea rows="${ROSTER_SIZE+1}"></textarea>
 			<footer>
 				<button value="cancel">${t('exportScores.close')}</button>
 				<button value="copy" type="button" class="btn--primary">${t('exportScores.copy')}</button>
@@ -81,7 +81,12 @@ function showResults(mogi) {
  * @param {Mogi} mogi
  */
 export function connectExportButton(resultsButton, downloadButton, mogi) {
-	resultsButton.addEventListener('click', () => showResults(mogi));
+	let exported = false;
+	resultsButton.addEventListener('click', () => {
+		exported = true;
+		resultsButton.classList.remove('pulse');
+		showResults(mogi);
+	});
 	downloadButton.addEventListener('click', async () => {
 		downloadButton.disabled = true;
 		await exportZip(mogi);
@@ -90,5 +95,7 @@ export function connectExportButton(resultsButton, downloadButton, mogi) {
 	mogi.addEventListener('update', () => {
 		resultsButton.disabled = !mogi.ended;
 		downloadButton.disabled = !mogi.ended;
+		// draw the eye to it once all races are in
+		resultsButton.classList.toggle('pulse', mogi.ended && !exported);
 	});
 }

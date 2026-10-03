@@ -107,7 +107,70 @@ export function checkTotals(mogi, index, earlier = new Map()) {
 	if (sorted(mismatches.map(m => m.shown)) === sorted(mismatches.map(m => m.expected))) {
 		return { result: 'wrong', from: index + 1, to: index + 1, mismatches };
 	}
+	// an earlier race already found to have its players mixed up explains it
+	for (let r = to - 1; r >= from - 1; r--) {
+		if (mixedUp(r)) return { result: 'wrong', from: r + 1, to: r + 1, mismatches };
+	}
 	const extra = mismatches.reduce((sum, m) => sum + m.shown - m.expected, 0);
 	const missed = index === 0 || (mismatches.every(m => m.shown > m.expected) && extra >= MISSING_RACE_POINTS);
 	return { result: missed ? 'missed' : 'wrong', from, to, mismatches };
+}
+
+/**
+ * Was a redo race played between the race before this one and this one? The game counts it in its
+ * totals, the Lounge doesn't.
+ * @param {Mogi} mogi
+ * @param {number} race 1-based
+ */
+export function redoBefore(mogi, race) {
+	return mogi.log.some(e => (e.key === 'redoRace' || e.key === 'markedRedo') && e.race === race);
+}
+
+/**
+ * Races the in-game totals say look wrong, and races that seem to have one missing before them.
+ * @param {Mogi} mogi
+ * @returns {Map<number, 'wrong'|'missedBefore'>} by 1-based race number
+ */
+export function suspectRaces(mogi) {
+	/** @type {Map<number, 'wrong'|'missedBefore'>} */
+	const marks = new Map();
+	/** @type {Map<number, TotalsCheck>} */
+	const earlier = new Map();
+	mogi.races.forEach((race, i) => {
+		const check = earlier.get(i) ?? checkTotals(mogi, i, earlier);
+		earlier.set(i, check);
+		if (!race.gameScores.length) return;
+		if (check.result === 'wrong') for (let r = check.from; r <= check.to; r++) marks.set(r, 'wrong');
+		else if (check.result === 'missed' && !redoBefore(mogi, i + 1)) marks.set(i + 1, 'missedBefore');
+	});
+	return marks;
+}
+
+/** Totals that must be read from the standings for the check to mean anything */
+const MIN_STANDINGS = 10;
+
+/**
+ * The standings that follow each results screen show everyone's new total. If those don't come from
+ * the last race recorded (its totals plus its points), that race's results screen was missed.
+ * @param {Mogi} mogi
+ * @param {(number|null)[]} shown totals read from the standings
+ * @returns {'ok'|'missed'|'unknown'}
+ */
+export function checkStandings(mogi, shown) {
+	const read = /** @type {number[]} */(shown.filter(v => v != null));
+	if (read.length < MIN_STANDINGS) return 'unknown';
+	const last = mogi.races.at(-1);
+	// before the first race, everyone is on 0
+	const expected = !last ? read.map(() => 0)
+		: last.gameScores.flatMap(g => g.total != null && g.points != null ? [g.total + g.points] : []);
+	if (expected.length < MIN_STANDINGS) return 'unknown';
+	let matched = 0;
+	for (const value of read) {
+		const i = expected.indexOf(value);
+		if (i < 0) continue;
+		expected.splice(i, 1);
+		matched++;
+	}
+	// one misread total is fine
+	return matched >= read.length - 1 ? 'ok' : 'missed';
 }

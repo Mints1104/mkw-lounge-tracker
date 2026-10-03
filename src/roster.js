@@ -9,6 +9,7 @@ export class Roster {
 	/** @type {string} */
 	#tier;
 	get tier() { return this.#tier; }
+	set tier(tier) { this.#tier = tier; }
 
 	/** @type {boolean} */
 	#isWar = false;

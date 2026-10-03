@@ -106,12 +106,13 @@ export class Mogi extends EventTarget {
 
 	/**
 	 * @param {number} idx
+	 * @param {{redo?:boolean}} [options] redo: the race is being redone; the game still counts it in its totals
 	 */
-	deleteRace(idx) {
+	deleteRace(idx, { redo = false } = {}) {
 		const race = this.#races.at(idx);
 		if( !race) throw new Error('Race not found');
 		this.#races.splice(idx, 1);
-		this.addLog({ level: 'info', race: idx + 1, key: 'raceDeleted' });
+		this.addLog({ level: 'info', race: idx + 1, key: redo ? 'markedRedo' : 'raceDeleted' });
 		this.triggerUpdate();
 		info(t('editRace.raceDeleted', { number: idx+1 }));
 	}

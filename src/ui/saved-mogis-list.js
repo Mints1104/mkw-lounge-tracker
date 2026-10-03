@@ -3,8 +3,9 @@
 
 import { onLocaleChange, t } from "../i18n/i18n.js";
 import { RACE_COUNT } from "../mogi.js";
-import { deleteSavedMogi, listSavedMogis, MAX_SAVED, resumeMogi } from "../saved-mogis.js";
-import { error, info } from "./toast.js";
+import { downloadZip } from "../export-zip.js";
+import { createBackup, deleteSavedMogi, listSavedMogis, MAX_SAVED, restoreBackup, resumeMogi } from "../saved-mogis.js";
+import { error, info, success } from "./toast.js";
 
 /** @param {SavedMogi} m */
 function formatLabel(m) {
@@ -62,23 +63,38 @@ function renderItem(m) {
 }
 
 /**
+ * @typedef {Object} SavedMogisElements
+ * @prop {HTMLElement} panel
+ * @prop {HTMLElement} about
+ * @prop {HTMLUListElement} list
+ * @prop {HTMLButtonElement} resumeLastButton shortcut to the latest mogi, if it isn't finished
+ * @prop {HTMLButtonElement} backupButton
+ * @prop {HTMLButtonElement} restoreButton
+ * @prop {HTMLInputElement} restoreFile
+ */
+
+/**
  * List the saved mogis on the landing page, and resolve with the one the user opens.
- * @param {HTMLElement} panel
- * @param {HTMLElement} about
- * @param {HTMLUListElement} list
- * @param {HTMLButtonElement} resumeLastButton shortcut to the latest mogi, if it isn't finished
+ * @param {SavedMogisElements} elements
  * @returns {Promise<Session>}
  */
-export function requestSavedMogi(panel, about, list, resumeLastButton) {
+export function requestSavedMogi({ panel, about, list, resumeLastButton, backupButton, restoreButton, restoreFile }) {
 	return new Promise(resolve => {
 		/** @type {SavedMogi[]} */
 		let saved = [];
 		let busy = false;
 
 		function render() {
-			panel.style.display = saved.length ? '' : 'none';
+			panel.style.display = '';
 			about.textContent = t('savedMogis.about', { count: MAX_SAVED });
-			list.replaceChildren(...saved.map(renderItem));
+			if (saved.length) list.replaceChildren(...saved.map(renderItem));
+			else {
+				const empty = document.createElement('li');
+				empty.className = 'muted';
+				empty.textContent = t('savedMogis.empty');
+				list.replaceChildren(empty);
+			}
+			backupButton.disabled = !saved.length;
 			const latest = saved[0];
 			resumeLastButton.hidden = !latest || latest.summary.ended;
 			if (latest && !latest.summary.ended) {
@@ -116,22 +132,46 @@ export function requestSavedMogi(panel, about, list, resumeLastButton) {
 			await refresh();
 		}
 
-		/** @param {(id:string) => Promise<void>} action */
-		const run = action => async (/** @type {string|undefined} */ id) => {
-			if (busy || !id) return;
+		async function backup() {
+			const date = new Date().toISOString().slice(0, 10).replaceAll('-', '');
+			downloadZip(await createBackup(), `mogi-backup-${date}`);
+			success(t('savedMogis.backupDone'));
+		}
+
+		/** @param {File} file */
+		async function restore(file) {
+			const count = await restoreBackup(file).catch(err => {
+				console.error(err);
+				error(t('savedMogis.restoreFailed'));
+				return null;
+			});
+			if (count === null) return;
+			if (count) success(t('savedMogis.restored', { count }));
+			else info(t('savedMogis.nothingToRestore'));
+			await refresh();
+		}
+
+		/**
+		 * @template T
+		 * @param {(arg:T) => Promise<void>} action
+		 * @param {string} failure translation key of the message when it fails
+		 */
+		const run = (action, failure) => async (/** @type {T|undefined} */ arg) => {
+			if (busy || arg === undefined) return;
 			busy = true;
 			try {
-				await action(id);
+				await action(arg);
 			}
 			catch (err) {
 				console.error(err);
-				error(t('savedMogis.notFound'));
+				error(t(failure));
 			}
 			finally {
 				busy = false;
 			}
 		};
-		const runOpen = run(open), runRemove = run(remove);
+		const runOpen = run(open, 'savedMogis.notFound'), runRemove = run(remove, 'savedMogis.notFound');
+		const runBackup = run(backup, 'savedMogis.backupFailed'), runRestore = run(restore, 'savedMogis.restoreFailed');
 
 		list.addEventListener('click', e => {
 			const button = /** @type {HTMLElement} */(e.target).closest('button');
@@ -139,6 +179,13 @@ export function requestSavedMogi(panel, about, list, resumeLastButton) {
 			if (button?.dataset.action === 'delete') runRemove(button.dataset.id);
 		});
 		resumeLastButton.addEventListener('click', () => runOpen(resumeLastButton.dataset.id));
+		backupButton.addEventListener('click', () => runBackup(null));
+		restoreButton.addEventListener('click', () => restoreFile.click());
+		restoreFile.addEventListener('change', () => {
+			const file = restoreFile.files?.[0];
+			restoreFile.value = '';
+			if (file) runRestore(file);
+		});
 		onLocaleChange(render);
 		refresh();
 	});

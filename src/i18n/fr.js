@@ -46,6 +46,9 @@ export default {
 		},
 
 		rosterSetup: {
+			tierLabel: "Tier",
+			tierHint: "Seulement si la liste collée n'a pas de ligne « Tier »",
+			noTier: "Aucun tier défini : ajoutez-le à la ligne !submit de l'export avant de poster",
 			title: "Configuration de la liste",
 			instructions: "Collez {count} joueurs :",
 			wrongLength: "{count} joueurs attendus, {actual} trouvés.",
@@ -54,6 +57,14 @@ export default {
 		},
 
 		savedMogis: {
+			empty: "Aucun mogi enregistré pour l'instant.",
+			backup: "⬇ Sauvegarder",
+			restore: "⬆ Restaurer une sauvegarde",
+			backupDone: "Sauvegarde téléchargée : gardez le fichier en lieu sûr",
+			backupFailed: "Impossible de créer la sauvegarde",
+			restored: "{count} mogis restaurés depuis la sauvegarde",
+			nothingToRestore: "Tout le contenu de cette sauvegarde est déjà là",
+			restoreFailed: "Ce fichier n'est pas une sauvegarde de mogis",
 			title: "Mogis enregistrés",
 			about: "Les mogis sont enregistrés dans ce navigateur pendant que vous jouez : vous pouvez reprendre là où vous en étiez ou revenir chercher les résultats. Les {count} derniers sont conservés.",
 			resumeLast: "▶ Reprendre le mogi ({count}/{total} courses)",
@@ -73,6 +84,16 @@ export default {
 			saveFailed: "Impossible d'enregistrer ce mogi dans le navigateur : il n'apparaîtra pas dans les mogis enregistrés."
 		},
 		log: {
+			matchedByLooks: "{count} noms illisibles reconnus d'après leur apparence dans les courses précédentes",
+			feedLost: "Le flux de la caméra est perdu (carte de capture débranchée ou caméra virtuelle d'OBS arrêtée) : l'auto-capture ne voit plus rien",
+			feedFrozen: "L'image de la caméra n'a pas changé depuis 30 secondes : le flux semble figé",
+			feedBlack: "L'image de la caméra est noire depuis 20 secondes : vérifiez la carte de capture et OBS",
+			feedBack: "Le flux de la caméra est revenu",
+			standingsMissed: "Le classement après cette course ne correspond pas aux courses enregistrées : son écran des résultats semble avoir été manqué",
+			markedRedo: "Retirée comme course rejouée",
+			totalsNowMatch: "Après la modification, les totaux du jeu correspondent aux courses",
+			totalsStillWrong: "Après la modification, les totaux du jeu ne correspondent toujours pas : vérifiez la course {races}",
+			mogiComplete: "Mogi terminé : les 12 courses sont enregistrées. Exportez les scores",
 			title: "Journal",
 			titleWithProblems: "Journal ({count} à vérifier)",
 			empty: "Rien pour l'instant.",
@@ -89,7 +110,7 @@ export default {
 			notResultsScreen: "Ceci ne ressemble pas à l'écran des résultats (pas de colonne +points) ; c'est peut-être le classement, vérifiez cette course",
 			totalsOk: "Les totaux du jeu correspondent aux courses enregistrées",
 			totalsUnknown: "Pas assez de totaux lisibles pour vérifier les courses enregistrées",
-			totalsWrong: "Les totaux du jeu ne correspondent pas : {races} semble incorrecte. {details}",
+			totalsWrong: "Les totaux du jeu ne correspondent pas : vérifiez {races}. {details}",
 			totalsMissed: "Les totaux du jeu sont plus élevés que prévu : une course semble manquer avant celle-ci (ou une course rejouée n'a pas été détectée). {details}",
 			totalsAfterRedo: "Les totaux du jeu incluent la course rejouée, ils n'ont donc pas pu être vérifiés cette fois",
 			redoRace: "Seulement {count} joueurs sur l'écran des résultats : cette course sera rejouée, elle n'a donc pas été enregistrée",
@@ -102,6 +123,7 @@ export default {
 			screenshotIgnored: "Capture d'écran Switch ignorée : cette course est déjà enregistrée"
 		},
 		capture: {
+			alreadyCapturing: "Capture déjà en cours ; patientez",
 			sounds: "Sons",
 			soundsOff: "Désactivés",
 			soundsAlerts: "Alertes",
@@ -150,6 +172,8 @@ export default {
 		},
 
 		editRace: {
+			redoButton: "Course rejouée",
+			confirmRedo: "Retirer cette course parce qu'elle est rejouée ? Le jeu la compte toujours dans ses totaux ; la vérification des totaux en tiendra compte.",
 			title: "Modifier la course",
 			instructions: "Sélectionnez deux joueurs à permuter.",
 			deleteRaceButton: "Supprimer la course",
@@ -182,6 +206,8 @@ export default {
 		},
 
 		scoreboard: {
+			suspectWrong: "D'après les totaux du jeu, cette course semble incorrecte",
+			suspectMissedBefore: "D'après les totaux du jeu, il manque une course avant celle-ci",
 			title: "Classement",
 			team: "Équipe",
 			player: "Joueur",

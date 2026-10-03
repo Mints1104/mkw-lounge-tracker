@@ -160,8 +160,25 @@ function binarize(ctx, r) {
  * @returns {PointsColumnScan}
  */
 export function scanPointsColumn(frame) {
+	return scanColumn(frame, pointsRects());
+}
+
+/**
+ * Cheap check for the standings that follow the results: count the rows of the totals column that hold a number.
+ * @param {HTMLCanvasElement} frame
+ * @returns {PointsColumnScan}
+ */
+export function scanTotalsColumn(frame) {
+	return scanColumn(frame, totalRects());
+}
+
+/**
+ * @param {HTMLCanvasElement} frame
+ * @param {{x:number, y:number, w:number, h:number}[]} rects
+ * @returns {PointsColumnScan}
+ */
+function scanColumn(frame, rects) {
 	const ctx = ctx2d(frame, { willReadFrequently: true });
-	const rects = pointsRects();
 	const size = rects[0].w * rects[0].h;
 	const bits = new Uint8Array(size * rects.length);
 	let rows = 0;
@@ -271,29 +288,41 @@ export async function countPointsLabels(scan) {
  * @returns {Promise<GameScore[]>} one per row, top to bottom; null where nothing could be read
  */
 export async function readGameScores(frame) {
+	const points = await readColumn(frame, pointsRects(), /^\+(\d{1,2})$/);
+	const totals = await readTotals(frame);
+	return points.map((p, i) => ({ points: p, total: totals[i] ?? null }));
+}
+
+/**
+ * Read the totals column, as on the results screen and the standings after it.
+ * @param {HTMLCanvasElement} frame
+ * @returns {Promise<(number|null)[]>} one per row, top to bottom
+ */
+export function readTotals(frame) {
+	return readColumn(frame, totalRects(), /^(\d{1,3})$/);
+}
+
+/**
+ * OCR a whole column at once, then match each line of text back to its row by position.
+ * @param {HTMLCanvasElement} frame
+ * @param {{x:number, y:number, w:number, h:number}[]} rects
+ * @param {RegExp} pattern
+ * @returns {Promise<(number|null)[]>}
+ */
+async function readColumn(frame, rects, pattern) {
 	const ctx = ctx2d(frame, { willReadFrequently: true });
 	const worker = await getPointsWorker();
-	/**
-	 * OCR a whole column at once, then match each line of text back to its row by position.
-	 * @param {{x:number, y:number, w:number, h:number}[]} rects
-	 * @param {RegExp} pattern
-	 */
-	const readColumn = async (rects, pattern) => {
-		const { w, h } = rects[0];
-		const rows = rects.map(r => binarize(ctx, r)).map(r => r.hasText ? r.bits : new Uint8Array(w * h));
-		const { data } = await worker.recognize(renderForOcr(rows, w, h, ocrCanvas));
-		/** @type {(number|null)[]} */
-		const values = rects.map(() => null);
-		for (const line of data?.lines ?? []) {
-			const row = Math.floor(((line.bbox.y0 + line.bbox.y1) / 2 - OCR_PAD) / (h + OCR_PAD));
-			const match = pattern.exec(String(line.text).replace(/\s+/g, ''));
-			if (match && row >= 0 && row < values.length) values[row] = Number(match[1]);
-		}
-		return values;
-	};
-	const points = await readColumn(pointsRects(), /^\+(\d{1,2})$/);
-	const totals = await readColumn(totalRects(), /^(\d{1,3})$/);
-	return points.map((p, i) => ({ points: p, total: totals[i] ?? null }));
+	const { w, h } = rects[0];
+	const rows = rects.map(r => binarize(ctx, r)).map(r => r.hasText ? r.bits : new Uint8Array(w * h));
+	const { data } = await worker.recognize(renderForOcr(rows, w, h, ocrCanvas));
+	/** @type {(number|null)[]} */
+	const values = rects.map(() => null);
+	for (const line of data?.lines ?? []) {
+		const row = Math.floor(((line.bbox.y0 + line.bbox.y1) / 2 - OCR_PAD) / (h + OCR_PAD));
+		const match = pattern.exec(String(line.text).replace(/\s+/g, ''));
+		if (match && row >= 0 && row < values.length) values[row] = Number(match[1]);
+	}
+	return values;
 }
 
 /**

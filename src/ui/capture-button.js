@@ -79,7 +79,8 @@ export function setupCaptureButton(captureButton, video, resultsList, mogi) {
 		}
 		captureButton.disabled = true;
 		captureButton.textContent = t('processing');
-		await captureResultsScreen(video, mogi);
+		const result = await captureResultsScreen(video, mogi);
+		if( result === 'busy' ) info(t('capture.alreadyCapturing'));
 		captureButton.disabled = false;
 		captureButton.textContent = t('capture.captureButton');
 	});

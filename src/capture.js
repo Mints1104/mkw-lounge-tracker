@@ -2,13 +2,15 @@
 
 import { countRedoPlayers, MIN_POINTS_ROWS, readGameScores, scanPointsColumn } from "./autocapture.js";
 import { t } from "./i18n/i18n.js";
-import { OCR_GRID, processResultsScreen } from "./ocr.js";
+import { nameBits, OCR_GRID, processResultsScreen } from "./ocr.js";
 import { Race } from "./race.js";
-import { checkTotals } from "./totals-check.js";
-import { attention, playSaved } from "./ui/alerts.js";
+import { checkTotals, redoBefore } from "./totals-check.js";
+import { attention, playComplete, playSaved } from "./ui/alerts.js";
 import { formatLogEntry } from "./ui/mogi-log.js";
-import { error, info } from "./ui/toast.js";
+import { error, info, success } from "./ui/toast.js";
 import { ctx2d, rgb2hsv } from "./util.js";
+
+/** @typedef {import("./player.js").Substitute} Substitute */
 
 /**
  * Capture a single frame from a video element into a canvas.
@@ -79,6 +81,9 @@ export function snapshotBlobUrlFromCanvas(base) {
 	});
 }
 
+/** A capture is running (the Capture button and auto-capture can both start one) */
+let capturing = false;
+
 /** @type {Record<CaptureSource, string>} */
 const SAVED_LOG_KEYS = { auto: 'savedAuto', screenshot: 'savedScreenshot', manual: 'savedManual' };
 
@@ -88,17 +93,23 @@ const SAVED_LOG_KEYS = { auto: 'savedAuto', screenshot: 'savedScreenshot', manua
  * @param {HTMLVideoElement} video
  * @param {Mogi} mogi
  * @param {{quiet?:boolean, source?:CaptureSource}} [options] quiet: don't warn when no scoreboard is found (the caller will retry)
- * @returns {Promise<'ok'|'cancelled'|'no_scoreboard'|'redo'|'error'>}
+ * @returns {Promise<'ok'|'cancelled'|'no_scoreboard'|'redo'|'error'|'busy'>} busy: another capture was still running
  */
 export async function captureResultsScreen(video, mogi, { quiet = false, source = 'manual' } = {}) {
+	if( capturing ) return 'busy';
+	capturing = true;
 	const raceNumber = mogi.size + 1;
 	/** @type {HTMLCanvasElement|null} */
 	let base = null;
 	try {
 		base = captureFrame(video);
-		const onAskUser = (/** @type {number} */ count) => attention(mogi, { level: 'warning', race: raceNumber, key: 'askedToMatch', vars: { count } });
+		const teamMode = mogi.playersPerTeam >= 3;
 		// this may throw MANUAL_CANCELLED or NO_SCOREBOARD
-		const placements = await processResultsScreen(base, OCR_GRID.nameRects, mogi.roster, mogi.playersPerTeam >= 3, { onAskUser });
+		const placements = await processResultsScreen(base, OCR_GRID.nameRects, mogi.roster, teamMode, {
+			onAskUser: count => attention(mogi, { level: 'warning', race: raceNumber, key: 'askedToMatch', vars: { count } }),
+			namePictures: namePicturesFrom(mogi, teamMode),
+			onMatchedByLooks: count => mogi.addLog({ level: 'info', race: raceNumber, key: 'matchedByLooks', vars: { count } })
+		});
 		// Only if successful, make the snapshot and push the race
 		const snapshotUrl = await snapshotBlobUrlFromCanvas(base);
 		// The "+N" column is only on the results screen, not on the standings that come after it
@@ -111,6 +122,11 @@ export async function captureResultsScreen(video, mogi, { quiet = false, source 
 		playSaved();
 		if( isResultsScreen ) reportTotals(mogi, mogi.size - 1);
 		else attention(mogi, { level: 'warning', race: raceNumber, key: 'notResultsScreen' });
+		if( mogi.ended ) {
+			mogi.addLog({ level: 'success', race: null, key: 'mogiComplete' });
+			success(t('log.mogiComplete'), { timeout: 15000 });
+			playComplete();
+		}
 		return 'ok';
 	} catch (e) {
 		// If the user canceled manual resolve, just abort quietly
@@ -137,6 +153,55 @@ export async function captureResultsScreen(video, mogi, { quiet = false, source 
 		attention(mogi, { level: 'error', race: raceNumber, key: 'ocrFailed' });
 		return 'error';
 	}
+	finally {
+		capturing = false;
+	}
+}
+
+/**
+ * How each player's name looked in the last race they were in, so names that can't be read can still be recognised.
+ * @param {Mogi} mogi
+ * @param {boolean} teamMode
+ * @returns {import("./ocr.js").NamePictures}
+ */
+function namePicturesFrom(mogi, teamMode) {
+	/** @type {Map<number, Promise<HTMLCanvasElement>>} the races' screenshots, by race */
+	const frames = new Map();
+	/** @param {Race} race */
+	const frameOf = race => {
+		let frame = frames.get(race.timestamp);
+		if (!frame) frames.set(race.timestamp, frame = (async () => {
+			// not an <img>: those don't get decoded while the page is in the background
+			const img = await createImageBitmap(await (await fetch(race.snapshotUrl)).blob());
+			const canvas = document.createElement('canvas');
+			canvas.width = OCR_GRID.canvasWidth;
+			canvas.height = OCR_GRID.canvasHeight;
+			ctx2d(canvas, { willReadFrequently: true }).drawImage(img, 0, 0, canvas.width, canvas.height);
+			return canvas;
+		})());
+		return frame;
+	};
+	return async playerIds => {
+		/** @type {Map<string, Uint8Array>} */
+		const pictures = new Map();
+		for (const id of playerIds) {
+			const player = mogi.roster.byId(id);
+			if (!player) continue;
+			// a substitute's name only shows in the races since they joined
+			const since = player.activePlayer === player ? 0 : /** @type {Substitute} */(player.activePlayer).joinedAt;
+			const race = mogi.races.slice(since).findLast(r => r.placements.some(p => p.playerId === id && !p.dc));
+			const place = race?.placements.find(p => p.playerId === id)?.placement;
+			if (!race || !place) continue;
+			try {
+				const bits = nameBits(await frameOf(race), /** @type {import("./ocr.js").Rect} */(OCR_GRID.nameRects[place - 1]), teamMode);
+				if (bits) pictures.set(id, bits);
+			}
+			catch (err) {
+				console.warn('Could not use an earlier screenshot', err);
+			}
+		}
+		return pictures;
+	};
 }
 
 /**
@@ -159,8 +224,7 @@ export function noteRedoRace(mogi, players) {
 function reportTotals(mogi, index) {
 	const check = checkTotals(mogi, index);
 	const race = index + 1;
-	// the game counts a race that's redone, the Lounge doesn't
-	const afterRedo = mogi.log.some(e => e.key === 'redoRace' && e.race === race);
+	const afterRedo = redoBefore(mogi, race);
 	if( check.result === 'ok' ) mogi.addLog({ level: 'success', race, key: 'totalsOk' });
 	else if( check.result === 'unknown' ) mogi.addLog({ level: 'info', race, key: 'totalsUnknown' });
 	else if( check.result === 'missed' && afterRedo ) mogi.addLog({ level: 'info', race, key: 'totalsAfterRedo' });

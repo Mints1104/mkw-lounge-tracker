@@ -41,6 +41,9 @@ export default {
 		},
 
 		rosterSetup: {
+			tierLabel: "ティア",
+			tierHint: "貼り付けたリストに「Tier」行がない場合のみ必要です",
+			noTier: "ティアが未設定です。投稿前にエクスポートの!submit行に追加してください",
 			title: 'プレイヤー一覧の設定',
 			instructions: '{count}人のプレイヤーを貼り付けてください:',
 			wrongLength: '{count}人を想定しましたが、{actual}人になっています。',
@@ -49,6 +52,14 @@ export default {
 		},
 
 		savedMogis: {
+			empty: "保存されたモギはまだありません。",
+			backup: "⬇ バックアップ",
+			restore: "⬆ バックアップから復元",
+			backupDone: "バックアップをダウンロードしました。ファイルを安全な場所に保管してください",
+			backupFailed: "バックアップを作成できませんでした",
+			restored: "バックアップから{count}件のモギを復元しました",
+			nothingToRestore: "このバックアップの内容はすべて既にあります",
+			restoreFailed: "このファイルはモギのバックアップではありません",
 			title: "保存されたモギ",
 			about: "モギはプレイ中にこのブラウザへ自動保存されます。途中から再開したり、後で結果を確認したりできます。最新{count}件まで保存されます。",
 			resumeLast: "▶ モギを再開（{count}/{total}レース）",
@@ -68,6 +79,16 @@ export default {
 			saveFailed: "このモギをブラウザに保存できませんでした。保存されたモギには表示されません。"
 		},
 		log: {
+			matchedByLooks: "読み取れなかった{count}人の名前を、以前のレースでの見た目から判別しました",
+			feedLost: "カメラ映像が途切れました（キャプチャーボードの切断、またはOBSの仮想カメラ停止）。自動キャプチャは何も見えていません",
+			feedFrozen: "カメラ映像が30秒間変化していません。映像が止まっているようです",
+			feedBlack: "カメラ映像が20秒間真っ暗です。キャプチャーボードとOBSを確認してください",
+			feedBack: "カメラ映像が復帰しました",
+			standingsMissed: "このレース後の総合順位が記録済みのレースと一致しません。リザルト画面を取り逃したようです",
+			markedRedo: "やり直しレースとして削除しました",
+			totalsNowMatch: "編集後、ゲーム内の合計点はレースと一致しています",
+			totalsStillWrong: "編集後もゲーム内の合計点が一致しません：レース{races}を確認してください",
+			mogiComplete: "モギ終了：12レースすべて記録しました。スコアを書き出してください",
 			title: "ログ",
 			titleWithProblems: "ログ（要確認 {count}件）",
 			empty: "まだ記録はありません。",
@@ -84,7 +105,7 @@ export default {
 			notResultsScreen: "リザルト画面ではないようです（+ポイントの列がありません）。総合順位の画面かもしれません。このレースを確認してください",
 			totalsOk: "ゲーム内の合計点はこれまでのレースと一致しています",
 			totalsUnknown: "合計点を十分に読み取れず、これまでのレースを確認できませんでした",
-			totalsWrong: "ゲーム内の合計点が一致しません：{races}が間違っているようです。{details}",
+			totalsWrong: "ゲーム内の合計点が一致しません：{races}を確認してください。{details}",
 			totalsMissed: "ゲーム内の合計点が予想より高いです：この前のレースが抜けているようです（またはやり直しのレースが検出されませんでした）。{details}",
 			totalsAfterRedo: "ゲーム内の合計点にやり直したレースが含まれているため、今回は確認できませんでした",
 			redoRace: "リザルト画面のプレイヤーが{count}人だけです。このレースはやり直しになるため、保存していません",
@@ -97,6 +118,7 @@ export default {
 			screenshotIgnored: "Switchのスクショを無視しました：このレースはキャプチャ済みです"
 		},
 		capture: {
+			alreadyCapturing: "キャプチャ中です。完了までお待ちください",
 			sounds: "サウンド",
 			soundsOff: "オフ",
 			soundsAlerts: "警告のみ",
@@ -145,6 +167,8 @@ export default {
 		},
 
 		editRace: {
+			redoButton: "やり直し",
+			confirmRedo: "やり直しのためこのレースを削除しますか？ゲーム内の合計点には含まれたままなので、合計点の確認ではそれを考慮します。",
 			title: 'レースを編集',
 			instructions: '入れ替えるプレイヤーを2人選択してください。',
 			deleteRaceButton: 'レースを削除',
@@ -177,6 +201,8 @@ export default {
 		},
 
 		scoreboard: {
+			suspectWrong: "ゲーム内の合計点によると、このレースは間違っているようです",
+			suspectMissedBefore: "ゲーム内の合計点によると、この前のレースが抜けています",
 			title: 'スコアボード',
 			team: 'チーム',
 			player: 'プレイヤー',

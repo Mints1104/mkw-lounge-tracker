@@ -1,9 +1,11 @@
 /** @typedef {import("../mogi.js").Mogi} Mogi */
 /** @typedef {import("../autocapture.js").PointsColumnScan} PointsColumnScan */
 
-import { checkOverlay, countPointsLabels, countRedoPlayers, MIN_POINTS_ROWS, MIN_REDO_ROWS, preloadResultsDetection, scanPointsColumn, scanSimilarity } from "../autocapture.js";
+import { checkOverlay, countPointsLabels, countRedoPlayers, MIN_POINTS_ROWS, MIN_REDO_ROWS, preloadResultsDetection, readTotals, scanPointsColumn, scanSimilarity, scanTotalsColumn } from "../autocapture.js";
 import { captureFrame, captureResultsScreen, noteRedoRace } from "../capture.js";
 import { t } from "../i18n/i18n.js";
+import { checkStandings, redoBefore } from "../totals-check.js";
+import { attention } from "./alerts.js";
 import { Config } from "../util.js";
 import { info, warning } from "./toast.js";
 
@@ -25,6 +27,8 @@ const SCREENSHOT_HITS = 3;
 const MIN_RACE_GAP_MS = 30000;
 /** A results screen with too few players must stay up this long before it's taken for a redo (rows can still be sliding in) */
 const REDO_CONFIRM_MS = 5000;
+/** The standings must stop moving for this long before their totals are read */
+const STANDINGS_STABLE_MS = 1500;
 /** Being in the background longer than this is worth a note in the log */
 const HIDDEN_WARNING_MS = 15000;
 
@@ -32,12 +36,13 @@ const HIDDEN_WARNING_MS = 15000;
  * Modes: 'off', 'on' (when a Switch screenshot is taken), 'results' (when the results screen appears),
  * 'both' (when the results screen appears, or when a Switch screenshot is taken in case it wasn't recognised)
  * @param {HTMLSelectElement} select
- * @param {HTMLButtonElement} captureButton
  * @param {HTMLVideoElement} video
  * @param {Mogi} mogi
  */
-export function setupAutoCapture(select, captureButton, video, mogi) {
+export function setupAutoCapture(select, video, mogi) {
 	let interval = 0;
+	// however the last race got in (auto-capture, the Capture button, a screenshot)
+	const sinceLastRace = () => Date.now() - (mogi.races.at(-1)?.timestamp ?? -Infinity);
 
 	function pollForScreenshot() {
 		let hits = 0;
@@ -67,11 +72,13 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 		let lastSeenAt = 0;
 		let stableSince = 0;
 		let retryAt = 0;
-		let lastCapturedAt = -Infinity;
 		let screenshotHits = 0;
 		/** @type {PointsColumnScan|null} */
 		let prev = null;
 		let redoRows = 0, redoSince = 0, redoLastSeen = 0, redoNoted = false;
+		/** @type {PointsColumnScan|null} */
+		let standingsPrev = null;
+		let standingsSince = 0, standingsLastSeen = 0, standingsChecked = false;
 
 		/**
 		 * @param {boolean} quiet
@@ -79,7 +86,6 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 		 */
 		async function capture(quiet, source) {
 			const result = await captureResultsScreen(video, mogi, { quiet, source });
-			if( result === 'ok' ) lastCapturedAt = performance.now();
 			// the manual resolve dialog may have been open for a while
 			lastSeenAt = performance.now();
 			return result;
@@ -113,6 +119,39 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			else redoSince = performance.now(); // not one after all; look again in a while
 		}
 
+		/**
+		 * The standings follow every results screen and show the new totals: if those don't come from the
+		 * last race recorded, its results screen was missed. Checked once per standings screen.
+		 * @param {PointsColumnScan} scan of the "+N" column, which the standings don't have
+		 * @param {HTMLCanvasElement} frame
+		 * @param {number} now
+		 */
+		async function watchForStandings(scan, frame, now) {
+			const totals = scan.rows < MIN_REDO_ROWS ? scanTotalsColumn(frame) : null;
+			if( !totals || totals.rows < MIN_POINTS_ROWS ) {
+				standingsPrev = null;
+				if( now - standingsLastSeen > REARM_AFTER_MS ) standingsChecked = false;
+				return;
+			}
+			standingsLastSeen = now;
+			if( standingsChecked ) return;
+			// wait for the totals to stop counting up and the rows to stop moving
+			const stable = standingsPrev && scanSimilarity(standingsPrev.bits, totals.bits) >= STABLE_SIMILARITY;
+			standingsPrev = totals;
+			if( !stable ) {
+				standingsSince = now;
+				return;
+			}
+			if( now - standingsSince < STANDINGS_STABLE_MS ) return;
+			const result = checkStandings(mogi, await readTotals(frame));
+			standingsChecked = result !== 'unknown';
+			if( result === 'unknown' ) standingsSince = performance.now(); // try reading them again in a moment
+			// a redo race is in the game's totals, but rightly not in the mogi
+			if( result === 'missed' && !redoBefore(mogi, mogi.size + 1) ) {
+				attention(mogi, { level: 'warning', race: mogi.size + 1, key: 'standingsMissed' });
+			}
+		}
+
 		async function poll() {
 			const now = performance.now();
 			const frame = captureFrame(video, frameBuffer);
@@ -120,7 +159,7 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			// A Switch screenshot captures straight away, unless this race is already in
 			screenshotHits = withScreenshots && checkOverlay(frame) ? screenshotHits + 1 : 0;
 			if( screenshotHits === SCREENSHOT_HITS ) {
-				if( now - lastCapturedAt < MIN_RACE_GAP_MS ) {
+				if( sinceLastRace() < MIN_RACE_GAP_MS ) {
 					info(t('capture.alreadyCaptured'));
 					mogi.addLog({ level: 'info', race: mogi.size, key: 'screenshotIgnored' });
 					return;
@@ -135,6 +174,7 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			if( scan.rows < MIN_POINTS_ROWS ) {
 				prev = null;
 				await watchForRedo(scan, frame, now);
+				await watchForStandings(scan, frame, now);
 				if( !armed && now - lastSeenAt > REARM_AFTER_MS ) {
 					armed = true;
 					attempts = 0;
@@ -142,7 +182,7 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 				return;
 			}
 			lastSeenAt = now;
-			if( !armed || now < retryAt || now - lastCapturedAt < MIN_RACE_GAP_MS ) return;
+			if( !armed || now < retryAt || sinceLastRace() < MIN_RACE_GAP_MS ) return;
 
 			// wait for the rows to stop animating before reading them
 			const stable = prev && scanSimilarity(prev.bits, scan.bits) >= STABLE_SIMILARITY;
@@ -158,6 +198,12 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			}
 			attempts++;
 			const result = await capture(attempts < MAX_ATTEMPTS, 'auto');
+			if( result === 'busy' ) {
+				// the Capture button got there first; look again in a moment
+				attempts--;
+				retryAt = performance.now() + RETRY_DELAY_MS;
+				return;
+			}
 			if( result === 'no_scoreboard' && attempts < MAX_ATTEMPTS ) {
 				retryAt = performance.now() + RETRY_DELAY_MS;
 				return;
@@ -183,7 +229,6 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			interval = setInterval(pollForResultsScreen(mode === 'both'), 250);
 			preloadResultsDetection().catch(err => console.error('Could not load OCR', err));
 		}
-		captureButton.disabled = mode !== 'off';
 		Config.set(configKey, mode);
 	}
 

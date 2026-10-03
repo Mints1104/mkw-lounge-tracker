@@ -15,6 +15,7 @@ const configKey = 'sounds'; // 'off' | 'alerts' | 'all' (alerts and saved races)
 /** @typedef {[frequency:number, seconds:number][]} Tune */
 /** @type {Tune} */ const ALERT = [[880, .16], [660, .16], [880, .16], [660, .32]];
 /** @type {Tune} */ const SAVED = [[784, .09], [1175, .18]];
+/** @type {Tune} */ const COMPLETE = [[523, .12], [659, .12], [784, .12], [1047, .36]];
 
 /** @type {AudioContext|null} */
 let audio = null;
@@ -57,6 +58,7 @@ export function soundsNeedClick() {
 }
 export function playAlert() { if (soundsSetting() !== 'off') play(ALERT, 0.35); }
 export function playSaved() { if (soundsSetting() === 'all') play(SAVED, 0.2); }
+export function playComplete() { if (soundsSetting() !== 'off') play(COMPLETE, 0.3); }
 
 /**
  * Something needs looking at: log it, show it for a while, and play the alert.

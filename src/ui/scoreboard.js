@@ -2,6 +2,7 @@
 
 import { fmt, t } from "../i18n/i18n.js";
 import { RACE_COUNT } from "../mogi.js";
+import { suspectRaces } from "../totals-check.js";
 import { ctx2d, toLetter } from "../util.js";
 import { openEditRace } from "./edit-race-dialog.js";
 import { openEditRoster } from "./edit-roster-dialog.js";
@@ -30,6 +31,7 @@ export function connectScoreboard(scoreTable, video, mogi) {
 
 		const races = mogi.races;
 		let totalScore = 0;
+		const suspects = suspectRaces(mogi);
 
 		// Build <thead>
 		const thead = document.createElement('thead');
@@ -40,6 +42,13 @@ export function connectScoreboard(scoreTable, video, mogi) {
 		const hPlayer = document.createElement('th'); hPlayer.textContent = t('scoreboard.player'); hr.appendChild(hPlayer);
 		for (let i = 0; i < RACE_COUNT; i++) {
 			const th = document.createElement('th'); th.textContent = t('scoreboard.raceNumber', { number: i + 1 }); hr.appendChild(th);
+			// what the in-game totals say about this race
+			const suspect = suspects.get(i + 1);
+			if( suspect ) {
+				th.textContent += ' ⚠';
+				th.classList.add('race-suspect');
+				th.title = t(suspect === 'wrong' ? 'scoreboard.suspectWrong' : 'scoreboard.suspectMissedBefore');
+			}
 		}
 		const hTot = document.createElement('th'); hTot.textContent = t('scoreboard.total'); hr.appendChild(hTot);
 		if (mogi.playersPerTeam > 1) {

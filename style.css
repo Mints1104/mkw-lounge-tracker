@@ -392,6 +392,20 @@ dialog::backdrop {
 	color: #eaffea;
 }
 
+@keyframes pulse {
+	0%, 100% { box-shadow: 0 0 0 0 #3fb95099; }
+	50% { box-shadow: 0 0 0 8px #3fb95000; }
+}
+
+.pulse {
+	animation: pulse 1.6s ease-in-out infinite;
+}
+
+.race-suspect {
+	background: #3b2b0a;
+	color: #ffd58a;
+}
+
 /* Mogi log */
 .mogi-log {
 	list-style: none;

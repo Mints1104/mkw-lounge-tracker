@@ -3,9 +3,10 @@ import { preprocessCrop, snapshotBlobUrlFromCanvas } from './capture.js';
 import { normalizeName } from './player.js';
 import { Placement } from './race.js';
 import { manualResolve } from './ui/manual-resolution-dialog.js';
-import { isDebugMode, popcount } from './util.js';
+import { ctx2d, isDebugMode, popcount } from './util.js';
 
 /** @typedef {import("./roster.js").Roster} Roster */
+/** @typedef {import("./player.js").Player} Player */
 /**
  * @typedef {Object} Rect
  * @prop {number} x
@@ -203,10 +204,13 @@ const scratch = document.createElement('canvas');
  * @param {Rect[]} nameRects
  * @param {Roster} roster
  * @param {boolean} teamMode
- * @param {{onAskUser?:(count:number) => void}} [options] onAskUser: called before asking the user to match players
+ * @param {Object} [options]
+ * @param {(count:number) => void} [options.onAskUser] called before asking the user to match players
+ * @param {NamePictures} [options.namePictures] to recognise names that can't be read by how they looked before
+ * @param {(count:number) => void} [options.onMatchedByLooks] called when names were recognised that way
  * @returns {Promise<Placement[]>}
  */
-export async function processResultsScreen(canvas, nameRects, roster, teamMode=false, { onAskUser } = {}) {
+export async function processResultsScreen(canvas, nameRects, roster, teamMode=false, { onAskUser, namePictures, onMatchedByLooks } = {}) {
 	const dbg = isDebugMode() ? startNewDebugReport() : null;
 	const whitelist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -',
 		levCosts = { ins: 3, del: 1, sub: 2 },
@@ -232,6 +236,8 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 
 	/** @type {{ text:string, confidence:number, hasText:boolean }[]} */
 	const rawRows = [];
+	/** @type {(Uint8Array|null)[]} each row's name as a picture, for recognising it by looks */
+	const rowBits = nameRects.map(() => null);
 	for ( let idx = 0; idx < nameRects.length; idx++ ) {
 		const rect = nameRects[idx];
 		const { canvas: img, whiteRatio } = preprocessCrop(canvas, rect, 1, scratch, teamMode);
@@ -248,6 +254,7 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 			});
 			continue;
 		}
+		rowBits[idx] = toBits(img);
 		const { data } = await worker.recognize(img);
 		const best = (data?.text ?? '').replace(/\s+/g, ' ').trim();
 		const conf = (data && Number.isFinite(data.confidence)) ? data.confidence : 0;
@@ -366,6 +373,12 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 		}
 	}
 
+	// Names that couldn't be matched by reading them: compare how they look with the remaining players' names in earlier races
+	if (namePictures && placements.some(p => !p.playerId)) {
+		const matched = await matchByLooks(placements, rowBits, rosterArray, namePictures, nameRects[0]);
+		if (matched) onMatchedByLooks?.(matched);
+	}
+
 	// If anything is unresolved, open the manual resolver with the remaining players
 	if (placements.some(p => !p.playerId)) {
 		const remaining = rosterArray.filter(p => !placements.some(r => r.playerId === p.id));
@@ -393,4 +406,98 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 	}
 
 	return placements;
+}
+
+/**
+ * Pictures of players' names from earlier races, by player ID.
+ * @typedef {(playerIds: string[]) => Promise<Map<string, Uint8Array>>} NamePictures
+ */
+
+/** How alike two pictures of the same name are, at least; different names stay well below */
+const LOOKS_SAME = 0.6;
+/** How much more alike the best match must be than the next best */
+const LOOKS_MARGIN = 0.12;
+
+const bitsScratch = document.createElement('canvas');
+/**
+ * A name row as a black and white picture (1 = text), the way it's prepared for OCR.
+ * @param {HTMLCanvasElement} canvas
+ * @param {Rect} rect
+ * @param {boolean} teamMode
+ * @returns {Uint8Array|null} null if the row is empty
+ */
+export function nameBits(canvas, rect, teamMode) {
+	const { canvas: img, whiteRatio } = preprocessCrop(canvas, rect, 1, bitsScratch, teamMode);
+	return whiteRatio < 0.01 || whiteRatio > 0.3 ? null : toBits(img);
+}
+
+/** @param {HTMLCanvasElement} img a thresholded crop */
+function toBits(img) {
+	const { data } = ctx2d(img, { willReadFrequently: true }).getImageData(0, 0, img.width, img.height);
+	const bits = new Uint8Array(img.width * img.height);
+	for (let i = 0; i < bits.length; i++) bits[i] = data[i * 4] === 255 ? 1 : 0;
+	return bits;
+}
+
+/**
+ * How alike two name pictures are (overlap of their text, 1 = identical), allowing them to be a few pixels apart.
+ * @param {Uint8Array} a
+ * @param {Uint8Array} b
+ * @param {number} w
+ * @param {number} h
+ */
+function nameLikeness(a, b, w, h) {
+	let best = 0;
+	for (let dy = -2; dy <= 2; dy++) {
+		for (let dx = -4; dx <= 4; dx++) {
+			let both = 0, either = 0;
+			for (let y = Math.max(0, -dy); y < Math.min(h, h - dy); y++) {
+				const ra = y * w, rb = (y + dy) * w;
+				for (let x = Math.max(0, -dx); x < Math.min(w, w - dx); x++) {
+					const va = a[ra + x] ?? 0, vb = b[rb + x + dx] ?? 0;
+					both += va & vb;
+					either += va | vb;
+				}
+			}
+			if (either && both / either > best) best = both / either;
+		}
+	}
+	return best;
+}
+
+/**
+ * Match rows nobody could be matched to by reading them, by how the remaining players' names looked in earlier races.
+ * Works for names OCR can't read at all, like ones in Japanese.
+ * @param {Placement[]} placements updated in place
+ * @param {(Uint8Array|null)[]} rowBits
+ * @param {Player[]} players
+ * @param {NamePictures} namePictures
+ * @param {Rect} rect size of a name row
+ * @returns {Promise<number>} how many rows were matched
+ */
+async function matchByLooks(placements, rowBits, players, namePictures, rect) {
+	const rows = placements.flatMap((p, j) => !p.playerId && !p.dc && rowBits[j] ? [j] : []);
+	const remaining = players.filter(p => !placements.some(r => r.playerId === p.id));
+	if (!rows.length || !remaining.length) return 0;
+	const pictures = await namePictures(remaining.map(p => p.id));
+
+	/** @type {{row:number, player:Player, likeness:number}[]} */
+	const found = [];
+	for (const row of rows) {
+		const bits = /** @type {Uint8Array} */(rowBits[row]);
+		const scores = remaining
+			.map(player => ({ player, likeness: pictures.has(player.id) ? nameLikeness(bits, /** @type {Uint8Array} */(pictures.get(player.id)), rect.w, rect.h) : 0 }))
+			.sort((x, y) => y.likeness - x.likeness);
+		const [best, next] = scores;
+		if (best && best.likeness >= LOOKS_SAME && best.likeness - (next?.likeness ?? 0) >= LOOKS_MARGIN) found.push({ row, ...best });
+	}
+	// surest first; each player only once
+	found.sort((x, y) => y.likeness - x.likeness);
+	const used = new Set();
+	for (const { row, player } of found) {
+		if (used.has(player.id)) continue;
+		used.add(player.id);
+		placements[row] = placements[row].withPlayerIdAndResolvedName(player.id, player.activePlayer.name);
+	}
+	return used.size;
 }

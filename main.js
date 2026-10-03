@@ -5,6 +5,7 @@ import { setupSounds, soundsNeedClick } from "./src/ui/alerts.js";
 import { setupAutoCapture } from "./src/ui/autocapture-toggle.js";
 import { setupCameraList, setupCaptureButton } from "./src/ui/capture-button.js";
 import { connectExportButton } from "./src/ui/export-results-dialog.js";
+import { watchFeed } from "./src/ui/feed-watchdog.js";
 import { connectGallery } from "./src/ui/gallery.js";
 import { setupLocaleSwitcher } from "./src/ui/locale-switcher.js";
 import { connectLog } from "./src/ui/mogi-log.js";
@@ -17,6 +18,9 @@ import { info, warning } from "./src/ui/toast.js";
 import { isDebugMode } from "./src/util.js";
 
 async function main() {
+	// keep the app's files for offline use and quicker starts
+	if( 'serviceWorker' in navigator ) navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service worker not registered', err));
+
 	const step1 = /** @type {HTMLDivElement} */(document.getElementById('step1'));
 	const step2 = /** @type {HTMLDivElement} */(document.getElementById('step2'));
 
@@ -30,6 +34,9 @@ async function main() {
 	const savedMogisPanel = /** @type {HTMLElement} */(document.getElementById('savedMogisPanel'));
 	const savedMogisAbout = /** @type {HTMLElement} */(document.getElementById('savedMogisAbout'));
 	const savedMogisList = /** @type {HTMLUListElement} */(document.getElementById('savedMogis'));
+	const backupButton = /** @type {HTMLButtonElement} */(document.getElementById('backupMogis'));
+	const restoreButton = /** @type {HTMLButtonElement} */(document.getElementById('restoreMogis'));
+	const restoreFile = /** @type {HTMLInputElement} */(document.getElementById('restoreFile'));
 
 	const video = /** @type {HTMLVideoElement} */(document.getElementById('preview'));
 	const cameraSelect = /** @type {HTMLSelectElement} */(document.getElementById('camera'));
@@ -51,7 +58,10 @@ async function main() {
 	const reopened = openId ? await resumeMogi(openId).catch(() => null) : null;
 	const { id, mogi } = reopened ?? await Promise.race([
 		requestRoster(startButton).then(startMogi),
-		requestSavedMogi(savedMogisPanel, savedMogisAbout, savedMogisList, resumeLastButton)
+		requestSavedMogi({
+			panel: savedMogisPanel, about: savedMogisAbout, list: savedMogisList, resumeLastButton,
+			backupButton, restoreButton, restoreFile
+		})
 	]);
 	history.replaceState(null, '', `#mogi=${id}`);
 
@@ -59,8 +69,9 @@ async function main() {
 	step2.style.display = 'block';
 
 	setupCameraList(cameraSelect, video);
+	watchFeed(video, cameraSelect, mogi);
 	setupCaptureButton(captureBtn, video, outputOl, mogi);
-	setupAutoCapture(autoCaptureSelect, captureBtn, video, mogi);
+	setupAutoCapture(autoCaptureSelect, video, mogi);
 	setupOverlay(useOverlayToggle, mogi);
 	connectScoreboard(scoreTable, video, mogi);
 	connectScoreboardScreenshotter(snapshotButton, scoreTable);

@@ -5,6 +5,7 @@
  * about all localStorage allows in total.
  */
 
+import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
 import { t } from "./i18n/i18n.js";
 import { Mogi, RACE_COUNT } from "./mogi.js";
 import { Player, Substitute } from "./player.js";
@@ -292,4 +293,52 @@ export async function resumeMogi(id) {
 	keepSaved(mogi, id, storedSnapshots, true);
 	mogi.addLog({ level: 'info', race: null, key: 'mogiReopened', vars: { count: mogi.size, total: RACE_COUNT } });
 	return { id, mogi };
+}
+
+const BACKUP_DATA = 'mogis.json';
+
+/**
+ * Everything saved, screenshots included, as a ZIP file: to keep somewhere safe, or to move to another browser.
+ * @returns {Promise<Blob>}
+ */
+export async function createBackup() {
+	const tx = (await openDb()).transaction([MOGIS, SNAPSHOTS], 'readonly');
+	const [mogis, keys, blobs] = await Promise.all([
+		result(tx.objectStore(MOGIS).getAll()),
+		result(tx.objectStore(SNAPSHOTS).getAllKeys()),
+		result(tx.objectStore(SNAPSHOTS).getAll())
+	]);
+	const zip = new JSZip();
+	zip.file(BACKUP_DATA, JSON.stringify(mogis));
+	keys.forEach((key, i) => zip.file(`snapshots/${String(key)}.jpg`, blobs[i]));
+	return zip.generateAsync({ type: 'blob' }); // the screenshots are JPEGs already, compressing them again gains nothing
+}
+
+/**
+ * Add the mogis from a backup that aren't saved here yet.
+ * @param {Blob} file
+ * @returns {Promise<number>} how many were added
+ */
+export async function restoreBackup(file) {
+	const zip = await JSZip.loadAsync(file);
+	const data = zip.file(BACKUP_DATA);
+	if (!data) throw new Error('Not a mogi backup');
+	const mogis = /** @type {SavedMogi[]} */(JSON.parse(await data.async('string')));
+	const existing = new Set((await listSavedMogis()).map(m => m.id));
+	const added = mogis.filter(m => m?.id && Array.isArray(m.races) && !existing.has(m.id));
+	// unzip the screenshots first: the transaction would close while waiting for them
+	/** @type {[string, Blob][]} */
+	const snapshots = [];
+	for (const m of added) {
+		for (const r of m.races) {
+			const key = snapshotKey(m.id, r.timestamp);
+			const entry = zip.file(`snapshots/${key}.jpg`);
+			if (entry) snapshots.push([key, new Blob([await entry.async('arraybuffer')], { type: 'image/jpeg' })]);
+		}
+	}
+	const tx = (await openDb()).transaction([MOGIS, SNAPSHOTS], 'readwrite');
+	added.forEach(m => tx.objectStore(MOGIS).put(m));
+	snapshots.forEach(([key, blob]) => tx.objectStore(SNAPSHOTS).put(blob, key));
+	await committed(tx);
+	return added.length;
 }

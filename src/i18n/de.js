@@ -46,6 +46,9 @@ export default {
 		},
 
 		rosterSetup: {
+			tierLabel: "Tier",
+			tierHint: "Nur nötig, wenn die eingefügte Liste keine „Tier“-Zeile hat",
+			noTier: "Kein Tier angegeben: ergänze es vor dem Posten in der !submit-Zeile im Export",
 			title: "Spielerliste einrichten",
 			instructions: "Füge {count} Spieler ein:",
 			wrongLength: "Erwartet: {count} Spieler, erhalten: {actual}.",
@@ -54,6 +57,14 @@ export default {
 		},
 
 		savedMogis: {
+			empty: "Noch keine gespeicherten Mogis.",
+			backup: "⬇ Sichern",
+			restore: "⬆ Sicherung laden",
+			backupDone: "Sicherung heruntergeladen: bewahre die Datei gut auf",
+			backupFailed: "Die Sicherung konnte nicht erstellt werden",
+			restored: "{count} Mogis aus der Sicherung wiederhergestellt",
+			nothingToRestore: "Alles aus dieser Sicherung ist schon da",
+			restoreFailed: "Diese Datei ist keine Mogi-Sicherung",
 			title: "Gespeicherte Mogis",
 			about: "Mogis werden beim Spielen in diesem Browser gespeichert, damit du dort weitermachen kannst, wo du aufgehört hast, oder später die Ergebnisse abrufen kannst. Die letzten {count} werden aufbewahrt.",
 			resumeLast: "▶ Mogi fortsetzen ({count}/{total} Rennen)",
@@ -73,6 +84,16 @@ export default {
 			saveFailed: "Dieser Mogi konnte nicht im Browser gespeichert werden und erscheint daher nicht unter den gespeicherten Mogis."
 		},
 		log: {
+			matchedByLooks: "{count} unlesbare Namen anhand ihres Aussehens in früheren Rennen erkannt",
+			feedLost: "Das Kamerabild ist weg (Capture-Karte getrennt oder virtuelle OBS-Kamera gestoppt): Auto-Capture sieht nichts mehr",
+			feedFrozen: "Das Kamerabild hat sich seit 30 Sekunden nicht verändert: es scheint eingefroren",
+			feedBlack: "Das Kamerabild ist seit 20 Sekunden schwarz: prüfe Capture-Karte und OBS",
+			feedBack: "Das Kamerabild ist wieder da",
+			standingsMissed: "Die Gesamtwertung nach diesem Rennen passt nicht zu den erfassten Rennen: sein Ergebnisbildschirm wurde anscheinend verpasst",
+			markedRedo: "Als wiederholtes Rennen entfernt",
+			totalsNowMatch: "Nach der Bearbeitung passen die Punktestände im Spiel zu den Rennen",
+			totalsStillWrong: "Nach der Bearbeitung passen die Punktestände im Spiel immer noch nicht: prüfe Rennen {races}",
+			mogiComplete: "Mogi beendet: alle 12 Rennen sind erfasst. Exportiere die Ergebnisse",
 			title: "Protokoll",
 			titleWithProblems: "Protokoll ({count} zu prüfen)",
 			empty: "Noch keine Einträge.",
@@ -89,7 +110,7 @@ export default {
 			notResultsScreen: "Das sieht nicht nach dem Ergebnisbildschirm aus (keine +Punkte-Spalte); evtl. die Gesamtwertung, prüfe dieses Rennen",
 			totalsOk: "Die Punktestände im Spiel passen zu den bisherigen Rennen",
 			totalsUnknown: "Zu wenige Punktestände lesbar, um die bisherigen Rennen zu prüfen",
-			totalsWrong: "Die Punktestände im Spiel passen nicht: {races} scheint falsch. {details}",
+			totalsWrong: "Die Punktestände im Spiel passen nicht: prüfe {races}. {details}",
 			totalsMissed: "Die Punktestände im Spiel sind höher als erwartet: vor diesem Rennen scheint eines zu fehlen (oder ein wiederholtes Rennen wurde nicht erkannt). {details}",
 			totalsAfterRedo: "Die Punktestände im Spiel enthalten das wiederholte Rennen und konnten diesmal nicht geprüft werden",
 			redoRace: "Nur {count} Spieler auf dem Ergebnisbildschirm: dieses Rennen wird wiederholt und wurde daher nicht gespeichert",
@@ -102,6 +123,7 @@ export default {
 			screenshotIgnored: "Switch-Screenshot ignoriert: dieses Rennen ist bereits aufgenommen"
 		},
 		capture: {
+			alreadyCapturing: "Es wird bereits aufgenommen; bitte warten",
 			sounds: "Töne",
 			soundsOff: "Aus",
 			soundsAlerts: "Warnungen",
@@ -150,6 +172,8 @@ export default {
 		},
 
 		editRace: {
+			redoButton: "Rennen wiederholt",
+			confirmRedo: "Dieses Rennen entfernen, weil es wiederholt wird? Das Spiel zählt es weiter in seinen Punkteständen mit; die Punkteprüfung berücksichtigt das.",
 			title: "Rennen bearbeiten",
 			instructions: "Wähle zwei Spieler zum Tauschen aus.",
 			deleteRaceButton: "Rennen löschen",
@@ -182,6 +206,8 @@ export default {
 		},
 
 		scoreboard: {
+			suspectWrong: "Laut den Punkteständen im Spiel scheint dieses Rennen falsch",
+			suspectMissedBefore: "Laut den Punkteständen im Spiel fehlt vor diesem Rennen eines",
 			title: "Rangliste",
 			team: "Team",
 			player: "Spieler",

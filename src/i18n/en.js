@@ -44,6 +44,9 @@ export default {
 			]
 		},
 		rosterSetup: {
+			tierLabel: "Tier",
+			tierHint: "Only needed if the pasted list has no “Tier” line",
+			noTier: "No tier set: add it to the !submit line in the export before posting",
 			title: "Roster setup",
 			instructions: "Paste {count} players:",
 			wrongLength: "Expected {count} players, got {actual}.",
@@ -51,6 +54,14 @@ export default {
 			rosterLoaded: "Roster loaded!"
 		},
 		savedMogis: {
+			empty: "No saved mogis yet.",
+			backup: "⬇ Back up",
+			restore: "⬆ Restore backup",
+			backupDone: "Backup downloaded: keep the file somewhere safe",
+			backupFailed: "Couldn't make the backup",
+			restored: "{count} mogis restored from the backup",
+			nothingToRestore: "Everything in that backup is already here",
+			restoreFailed: "That file isn't a mogi backup",
 			title: "Saved mogis",
 			about: "Mogis are saved in this browser as you play, so you can pick up where you left off or come back for the results. The last {count} are kept.",
 			resumeLast: "▶ Resume mogi ({count}/{total} races)",
@@ -70,6 +81,16 @@ export default {
 			saveFailed: "Couldn't save this mogi in the browser, so it won't be in your saved mogis."
 		},
 		log: {
+			matchedByLooks: "Recognised {count} names that couldn't be read by how they looked in earlier races",
+			feedLost: "The camera feed was lost (capture card unplugged, or OBS's virtual camera stopped): auto-capture can't see anything",
+			feedFrozen: "The camera picture hasn't changed for 30 seconds: the feed seems frozen",
+			feedBlack: "The camera picture has been black for 20 seconds: check the capture card and OBS",
+			feedBack: "The camera feed is back",
+			standingsMissed: "The standings after this race don't match the races recorded so far: its results screen seems to have been missed",
+			markedRedo: "Removed as a redo race",
+			totalsNowMatch: "After the edit, the in-game totals match the races",
+			totalsStillWrong: "After the edit, the in-game totals still don't match: check race {races}",
+			mogiComplete: "Mogi complete: all 12 races are in. Export the scores",
 			title: "Log",
 			titleWithProblems: "Log ({count} to check)",
 			empty: "Nothing logged yet.",
@@ -86,7 +107,7 @@ export default {
 			notResultsScreen: "This doesn't look like the results screen (no +points column); it may be the standings, check this race",
 			totalsOk: "In-game totals match the races so far",
 			totalsUnknown: "Couldn't read enough totals to check the races so far",
-			totalsWrong: "In-game totals don't match: {races} looks wrong. {details}",
+			totalsWrong: "In-game totals don't match: check {races}. {details}",
 			totalsMissed: "In-game totals are higher than expected: a race seems to be missing before this one (or a redo race wasn't noticed). {details}",
 			totalsAfterRedo: "In-game totals include the redo race, so they couldn't be checked this time",
 			redoRace: "Only {count} players on the results screen: this race gets redone, so it wasn't recorded",
@@ -99,6 +120,7 @@ export default {
 			screenshotIgnored: "Switch screenshot ignored: this race was already captured"
 		},
 		capture: {
+			alreadyCapturing: "Already capturing; wait for it to finish",
 			sounds: "Sounds",
 			soundsOff: "Off",
 			soundsAlerts: "Alerts",
@@ -144,6 +166,8 @@ export default {
 			selectPlayer: "— Select player —"
 		},
 		editRace: {
+			redoButton: "Redo race",
+			confirmRedo: "Remove this race because it's being redone? The game still counts it in its totals, so the totals check will allow for that.",
 			title: "Edit race",
 			instructions: "Select two players to swap them.",
 			deleteRaceButton: "Delete race",
@@ -173,6 +197,8 @@ export default {
 			substituteUpdated: "Substitute updated!"
 		},
 		scoreboard: {
+			suspectWrong: "The in-game totals say this race looks wrong",
+			suspectMissedBefore: "The in-game totals say a race is missing before this one",
 			title: "Scoreboard",
 			team: "Team",
 			player: "Player",

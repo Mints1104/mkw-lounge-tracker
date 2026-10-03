@@ -94,7 +94,7 @@ async function createSessionZip(mogi) {
  * @param {Blob} zipFile
  * @param {string} [fileName]
  */
-function downloadZip(zipFile, fileName=defaultZipName()) {
+export function downloadZip(zipFile, fileName=defaultZipName()) {
 	const url = URL.createObjectURL(zipFile);
 	try {
 		const a = document.createElement('a');
