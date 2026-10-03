@@ -94,6 +94,8 @@ export function checkOverlay(source) {
 const pointsRects = () => columnRects(1650, 90);
 /** Rows of "+N" labels needed to count as the results screen; 10-player races are still valid */
 export const MIN_POINTS_ROWS = 10;
+/** A results screen with fewer players than MIN_POINTS_ROWS (but at least this many) is a race that gets redone */
+export const MIN_REDO_ROWS = 5;
 /** Each player's total before this race, right of the "+N" column */
 const totalRects = () => columnRects(1735, 95);
 
@@ -292,4 +294,16 @@ export async function readGameScores(frame) {
 	const points = await readColumn(pointsRects(), /^\+(\d{1,2})$/);
 	const totals = await readColumn(totalRects(), /^(\d{1,3})$/);
 	return points.map((p, i) => ({ points: p, total: totals[i] ?? null }));
+}
+
+/**
+ * Is this the results screen of a race with too few players to count (so it gets redone)?
+ * @param {HTMLCanvasElement} frame
+ * @param {PointsColumnScan} [scan]
+ * @returns {Promise<number>} how many players were on it, or 0 if it isn't one
+ */
+export async function countRedoPlayers(frame, scan = scanPointsColumn(frame)) {
+	if (scan.rows < MIN_REDO_ROWS || scan.rows >= MIN_POINTS_ROWS) return 0;
+	const count = await countPointsLabels(scan);
+	return count >= MIN_REDO_ROWS && count < MIN_POINTS_ROWS ? count : 0;
 }

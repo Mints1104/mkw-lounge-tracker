@@ -1,8 +1,8 @@
 /** @typedef {import("../mogi.js").Mogi} Mogi */
 /** @typedef {import("../autocapture.js").PointsColumnScan} PointsColumnScan */
 
-import { checkOverlay, countPointsLabels, MIN_POINTS_ROWS, preloadResultsDetection, scanPointsColumn, scanSimilarity } from "../autocapture.js";
-import { captureFrame, captureResultsScreen } from "../capture.js";
+import { checkOverlay, countPointsLabels, countRedoPlayers, MIN_POINTS_ROWS, MIN_REDO_ROWS, preloadResultsDetection, scanPointsColumn, scanSimilarity } from "../autocapture.js";
+import { captureFrame, captureResultsScreen, noteRedoRace } from "../capture.js";
 import { t } from "../i18n/i18n.js";
 import { Config } from "../util.js";
 import { info, warning } from "./toast.js";
@@ -23,6 +23,8 @@ const MAX_ATTEMPTS = 3;
 const SCREENSHOT_HITS = 3;
 /** No race (with intro) is shorter than this, so a second capture this soon is the same race again */
 const MIN_RACE_GAP_MS = 30000;
+/** A results screen with too few players must stay up this long before it's taken for a redo (rows can still be sliding in) */
+const REDO_CONFIRM_MS = 5000;
 /** Being in the background longer than this is worth a note in the log */
 const HIDDEN_WARNING_MS = 15000;
 
@@ -39,17 +41,20 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 
 	function pollForScreenshot() {
 		let hits = 0;
+		let busy = false;
 		let cooldown = false;
-		return () => {
-			if( mogi.ended ) return;
-			if( cooldown ) return;
-			if( checkOverlay(video) ) hits += 1;
-			if( hits > 2 ) {
-				captureResultsScreen(video, mogi, { source: 'screenshot' });
-				hits = 0;
-				cooldown = true;
-				setTimeout(() => cooldown = false, 5000);
-			}
+		return async () => {
+			if( mogi.ended || busy || cooldown ) return;
+			// only sightings in a row count, so the odd false one doesn't add up over a mogi
+			hits = checkOverlay(video) ? hits + 1 : 0;
+			if( hits < SCREENSHOT_HITS ) return;
+			hits = 0;
+			// the icon stays up for a few seconds; don't take it for a second screenshot
+			cooldown = true;
+			setTimeout(() => cooldown = false, 5000);
+			busy = true;
+			try { await captureResultsScreen(video, mogi, { source: 'screenshot' }); }
+			finally { busy = false; }
 		};
 	}
 
@@ -66,6 +71,7 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 		let screenshotHits = 0;
 		/** @type {PointsColumnScan|null} */
 		let prev = null;
+		let redoRows = 0, redoSince = 0, redoLastSeen = 0, redoNoted = false;
 
 		/**
 		 * @param {boolean} quiet
@@ -77,6 +83,34 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			// the manual resolve dialog may have been open for a while
 			lastSeenAt = performance.now();
 			return result;
+		}
+
+		/**
+		 * A results screen with too few players is a race that gets redone: note it once
+		 * @param {PointsColumnScan} scan
+		 * @param {HTMLCanvasElement} frame
+		 * @param {number} now
+		 */
+		async function watchForRedo(scan, frame, now) {
+			if( scan.rows < MIN_REDO_ROWS ) {
+				redoSince = 0;
+				if( now - redoLastSeen > REARM_AFTER_MS ) redoNoted = false;
+				return;
+			}
+			redoLastSeen = now;
+			if( redoNoted ) return;
+			if( !redoSince || scan.rows !== redoRows ) {
+				redoSince = now;
+				redoRows = scan.rows;
+				return;
+			}
+			if( now - redoSince < REDO_CONFIRM_MS ) return;
+			const players = await countRedoPlayers(frame, scan);
+			if( players ) {
+				redoNoted = true;
+				noteRedoRace(mogi, players);
+			}
+			else redoSince = performance.now(); // not one after all; look again in a while
 		}
 
 		async function poll() {
@@ -100,6 +134,7 @@ export function setupAutoCapture(select, captureButton, video, mogi) {
 			const scan = scanPointsColumn(frame);
 			if( scan.rows < MIN_POINTS_ROWS ) {
 				prev = null;
+				await watchForRedo(scan, frame, now);
 				if( !armed && now - lastSeenAt > REARM_AFTER_MS ) {
 					armed = true;
 					attempts = 0;

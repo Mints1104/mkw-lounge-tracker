@@ -274,19 +274,14 @@ export function connectScoreboardScreenshotter(captureButton, scoreTable) {
 		}
 		// try to copy to clipboard
 		if( 'ClipboardItem' in window ) {
-			canvas.toBlob(blob => {
-				if( blob) {
-					navigator.clipboard.write([
-						new ClipboardItem({
-							'image/png': blob,
-						})
-					]);
-					success(t('exportScores.copiedToClipboard'));
-				}
-				else {
+			// hand over the image as a promise, so the copy still counts as part of the click
+			const png = new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/png'));
+			navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+				.then(() => success(t('exportScores.copiedToClipboard')))
+				.catch(err => {
+					console.error(err);
 					fallbackDialog();
-				}
-			});
+				});
 		}
 		else {
 			fallbackDialog();

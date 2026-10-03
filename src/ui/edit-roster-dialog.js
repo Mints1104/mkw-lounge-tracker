@@ -163,7 +163,7 @@ export function openEditRoster(mogi, video) {
 			const p = mogi.roster.byId(button.dataset.subPlayerId);
 			if (p) {
 				dialog.close();
-				openSubstitutePlayer(mogi, p);
+				openSubstitutePlayer(mogi, p, video);
 			}
 		}
 	});

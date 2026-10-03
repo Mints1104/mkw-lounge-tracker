@@ -1,11 +1,12 @@
 /** @typedef {import("./mogi.js").Mogi} Mogi */
 
-import { MIN_POINTS_ROWS, readGameScores, scanPointsColumn } from "./autocapture.js";
+import { countRedoPlayers, MIN_POINTS_ROWS, readGameScores, scanPointsColumn } from "./autocapture.js";
 import { t } from "./i18n/i18n.js";
 import { OCR_GRID, processResultsScreen } from "./ocr.js";
 import { Race } from "./race.js";
 import { checkTotals } from "./totals-check.js";
 import { attention, playSaved } from "./ui/alerts.js";
+import { formatLogEntry } from "./ui/mogi-log.js";
 import { error, info } from "./ui/toast.js";
 import { ctx2d, rgb2hsv } from "./util.js";
 
@@ -87,12 +88,14 @@ const SAVED_LOG_KEYS = { auto: 'savedAuto', screenshot: 'savedScreenshot', manua
  * @param {HTMLVideoElement} video
  * @param {Mogi} mogi
  * @param {{quiet?:boolean, source?:CaptureSource}} [options] quiet: don't warn when no scoreboard is found (the caller will retry)
- * @returns {Promise<'ok'|'cancelled'|'no_scoreboard'|'error'>}
+ * @returns {Promise<'ok'|'cancelled'|'no_scoreboard'|'redo'|'error'>}
  */
 export async function captureResultsScreen(video, mogi, { quiet = false, source = 'manual' } = {}) {
 	const raceNumber = mogi.size + 1;
+	/** @type {HTMLCanvasElement|null} */
+	let base = null;
 	try {
-		const base = captureFrame(video);
+		base = captureFrame(video);
 		const onAskUser = (/** @type {number} */ count) => attention(mogi, { level: 'warning', race: raceNumber, key: 'askedToMatch', vars: { count } });
 		// this may throw MANUAL_CANCELLED or NO_SCOREBOARD
 		const placements = await processResultsScreen(base, OCR_GRID.nameRects, mogi.roster, mogi.playersPerTeam >= 3, { onAskUser });
@@ -120,6 +123,12 @@ export async function captureResultsScreen(video, mogi, { quiet = false, source 
 		// If no scoreboard found, warn the user
 		if (/** @type {any} */(e)?.code === 'NO_SCOREBOARD') {
 			console.log('No scoreboard detected in frame.');
+			// too few players for the race to count isn't a failure to read it
+			const players = base ? await countRedoPlayers(base).catch(() => 0) : 0;
+			if( players ) {
+				noteRedoRace(mogi, players);
+				return 'redo';
+			}
 			if( !quiet) attention(mogi, { level: 'error', race: raceNumber, key: 'noScoreboard' });
 			return 'no_scoreboard';
 		}
@@ -131,6 +140,18 @@ export async function captureResultsScreen(video, mogi, { quiet = false, source 
 }
 
 /**
+ * A race with too few players gets redone, so it isn't recorded; note it, so the totals after it make sense.
+ * @param {Mogi} mogi
+ * @param {number} players
+ */
+export function noteRedoRace(mogi, players) {
+	/** @type {Omit<import("./mogi.js").LogEntry, 'time'>} */
+	const entry = { level: 'info', race: mogi.size + 1, key: 'redoRace', vars: { count: players } };
+	mogi.addLog(entry);
+	info(formatLogEntry(entry), { timeout: 10000 });
+}
+
+/**
  * Compare the totals the game showed on a race's results screen with the races recorded before it.
  * @param {Mogi} mogi
  * @param {number} index
@@ -138,8 +159,11 @@ export async function captureResultsScreen(video, mogi, { quiet = false, source 
 function reportTotals(mogi, index) {
 	const check = checkTotals(mogi, index);
 	const race = index + 1;
+	// the game counts a race that's redone, the Lounge doesn't
+	const afterRedo = mogi.log.some(e => e.key === 'redoRace' && e.race === race);
 	if( check.result === 'ok' ) mogi.addLog({ level: 'success', race, key: 'totalsOk' });
 	else if( check.result === 'unknown' ) mogi.addLog({ level: 'info', race, key: 'totalsUnknown' });
+	else if( check.result === 'missed' && afterRedo ) mogi.addLog({ level: 'info', race, key: 'totalsAfterRedo' });
 	else {
 		const details = check.mismatches.slice(0, 3).map(m => t('log.totalsDetail', m)).join('; ');
 		const races = check.from === check.to ? t('log.raceRef', { number: check.to }) : t('log.raceRange', { from: check.from, to: check.to });

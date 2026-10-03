@@ -97,6 +97,7 @@ export class Mogi extends EventTarget {
 		const oldRace = this.#races.at(idx);
 		if( !oldRace) throw new Error('Race not found');
 		const newRace = oldRace.withPlacements(placements);
+		this.#roster.relearnIGNs(oldRace.placements, placements);
 		this.#races.splice(idx, 1, newRace);
 		this.addLog({ level: 'info', race: idx + 1, key: 'raceEdited' });
 		this.triggerUpdate();

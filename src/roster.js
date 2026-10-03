@@ -53,6 +53,26 @@ export class Roster {
 	}
 
 	/**
+	 * A race was corrected: players who learned their in-game name from the row they were wrongly put in
+	 * learn it from their actual row instead, so the next race doesn't repeat the mistake.
+	 * @param {Placement[]} before
+	 * @param {Placement[]} after
+	 */
+	relearnIGNs(before, after) {
+		for (const row of after) {
+			const old = before.find(p => p.playerId === row.playerId);
+			if (!row.playerId || row.dc || !old || old.placement === row.placement) continue;
+			const player = this.byId(row.playerId)?.activePlayer;
+			if (!player) continue;
+			// rows stay in screen order, so the name read for a place is in the row at that position
+			const learnedFrom = old.dc ? '' : after[old.placement - 1]?.ocrText ?? '';
+			const actual = (after[row.placement - 1]?.ocrText ?? '').trim();
+			if (!normalizeName(actual)) continue;
+			if (player.rawIgn === '' || normalizeName(player.rawIgn) === normalizeName(learnedFrom)) player.rawIgn = actual;
+		}
+	}
+
+	/**
 	 * Rebuild a saved roster.
 	 * @param {{tier:string, isWar:boolean, warTags:string[]}} meta
 	 * @param {Player[]} players

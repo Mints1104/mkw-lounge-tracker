@@ -230,14 +230,14 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 		tessedit_pageseg_mode: '6' // SINGLE_BLOCK
 	});
 
-	/** @type {{ text:string, confidence:number }[]} */
+	/** @type {{ text:string, confidence:number, hasText:boolean }[]} */
 	const rawRows = [];
 	for ( let idx = 0; idx < nameRects.length; idx++ ) {
 		const rect = nameRects[idx];
 		const { canvas: img, whiteRatio } = preprocessCrop(canvas, rect, 1, scratch, teamMode);
 		if (whiteRatio < 0.01 || whiteRatio > 0.3) {
 			// nothing found, skip
-			rawRows.push({ text: '', confidence: 0 });
+			rawRows.push({ text: '', confidence: 0, hasText: false });
 			if( dbg ) dbg.rows.push({
 				idx, rect, whiteRatio,
 				rectSnapshotUrl: await snapshotBlobUrlFromCanvas(img),
@@ -251,7 +251,7 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 		const { data } = await worker.recognize(img);
 		const best = (data?.text ?? '').replace(/\s+/g, ' ').trim();
 		const conf = (data && Number.isFinite(data.confidence)) ? data.confidence : 0;
-		rawRows.push({ text: best, confidence: conf });
+		rawRows.push({ text: best, confidence: conf, hasText: true });
 		if( dbg ) dbg.rows.push({
 			idx, rect, whiteRatio,
 			rectSnapshotUrl: await snapshotBlobUrlFromCanvas(img),
@@ -341,14 +341,24 @@ export async function processResultsScreen(canvas, nameRects, roster, teamMode=f
 		}
 	}
 
+	// A row with a name on it that couldn't be read isn't a disconnect; and with one of those in the race,
+	// who disconnected can't be worked out by elimination either
+	const unreadable = normRows.map((s, j) => !s && rawRows[j].hasText);
+	const anyUnreadable = unreadable.some(Boolean);
+
 	// Ambiguity handling:
 	//  - Mark blank rows as disconnected
+	//  - Ask who unreadable rows are (and, if there are any, who disconnected)
 	//  - If a row has *non-blank* OCR and its assigned distance exceeds maxEditDistance, revoke assignment
 	for (let j = 0; j < N; j++) {
 		const isBlank = !normRows[j];
 		if (isBlank) {
-			placements[j] = placements[j].withPlacement(placements[j].placement, true);
-			if( dbg && dbg.rows[j] ) dbg.rows[j].disconnected = true;
+			if (!unreadable[j]) placements[j] = placements[j].withPlacement(placements[j].placement, true);
+			if (anyUnreadable) placements[j] = placements[j].withPlayerIdAndResolvedName(null, placements[j].ocrText);
+			if( dbg && dbg.rows[j] ) {
+				dbg.rows[j].disconnected = !unreadable[j];
+				dbg.rows[j].revokedAssign = anyUnreadable;
+			}
 		}
 		else if (assignedDist[j] > maxEditDistance) {
 			placements[j] = placements[j].withPlayerIdAndResolvedName(null, placements[j].ocrText);

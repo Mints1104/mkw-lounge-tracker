@@ -35,8 +35,9 @@ function makeDialog() {
 /**
  * @param {Mogi} mogi
  * @param {Player} player
+ * @param {HTMLVideoElement} video for Auto-fill in the roster dialog, which this goes back to
  */
-export function openSubstitutePlayer(mogi, player) {
+export function openSubstitutePlayer(mogi, player, video) {
 	const { dialog, name, grid, save, cancel } = makeDialog();
 
 	name.textContent = player.name;
@@ -109,12 +110,12 @@ export function openSubstitutePlayer(mogi, player) {
 		dialog.close();
 		success(t('substitutePlayer.substituteUpdated'));
 		mogi.triggerUpdate();
-		openEditRoster(mogi);
+		openEditRoster(mogi, video);
 	});
 
 	cancel.addEventListener('click', () => {
 		dialog.close();
-		openEditRoster(mogi);
+		openEditRoster(mogi, video);
 	});
 
 	dialog.showModal();

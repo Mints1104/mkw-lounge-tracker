@@ -36,7 +36,7 @@ export function manualResolve(placements, remaining) {
 		const unresolved = placements.filter(p => !p.playerId);
 
 		for (const row of unresolved) {
-			const y1 = document.createElement('div'); y1.className = 'mono muted'; y1.textContent = fmt.place(row.placement);
+			const y1 = document.createElement('div'); y1.className = 'mono muted'; y1.textContent = row.dc ? t('editRace.disconnectedPlace') : fmt.place(row.placement);
 			const y2 = document.createElement('div'); y2.textContent = t('capture.ocrResult', { ocrText: row.ocrText, ocrConfidence: row.ocrConfidence });
 			const y3 = document.createElement('div');
 			const sel = document.createElement('select'); sel.dataset.placement = String(row.placement);
