@@ -392,6 +392,37 @@ dialog::backdrop {
 	color: #eaffea;
 }
 
+/* Mogi log */
+.mogi-log {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 4px;
+	max-height: 320px;
+	overflow: auto;
+}
+
+.mogi-log li {
+	display: flex;
+	gap: 12px;
+	padding: 4px 8px;
+	border-radius: 8px;
+}
+
+.mogi-log li>:first-child {
+	flex: none;
+	white-space: nowrap;
+}
+
+.mogi-log .log--warning {
+	background: #3b2b0a;
+}
+
+.mogi-log .log--error {
+	background: #3b0a0a;
+}
+
 /* Saved mogis */
 .saved-mogis {
 	list-style: none;

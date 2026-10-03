@@ -6,6 +6,15 @@ import { Team } from './team.js';
 
 export const RACE_COUNT = 12;
 
+/**
+ * @typedef {Object} LogEntry
+ * @prop {number} time
+ * @prop {number|null} race 1-based number of the race it's about
+ * @prop {'info'|'success'|'warning'|'error'} level
+ * @prop {string} key what happened, as a translation key under "log."
+ * @prop {Record<string, string|number>} [vars]
+ */
+
 export class Mogi extends EventTarget {
 	/** @type {Roster} */ #roster;
 	get roster() { return this.#roster; }
@@ -21,6 +30,15 @@ export class Mogi extends EventTarget {
 	#startTime = Date.now();
 	get startDate() { return new Date(this.#startTime); }
 
+	/** @type {LogEntry[]} */ #log = [];
+	/** What happened during the mogi, oldest first */
+	get log() { return [...this.#log]; }
+	/** @param {Omit<LogEntry, 'time'>} entry */
+	addLog(entry) {
+		this.#log.push({ time: Date.now(), ...entry });
+		this.dispatchEvent(new Event('log'));
+	}
+
 	playersPerTeam = 1;
 	/** @type {Team[]} */ #teams = [];
 	get teams() { return [...this.#teams]; }
@@ -29,13 +47,14 @@ export class Mogi extends EventTarget {
 
 	/**
 	 * @param {Roster} roster
-	 * @param {{startTime?:number, races?:Race[]}} [saved] to continue a saved mogi
+	 * @param {{startTime?:number, races?:Race[], log?:LogEntry[]}} [saved] to continue a saved mogi
 	 */
-	constructor(roster, { startTime = Date.now(), races = [] } = {}) {
+	constructor(roster, { startTime = Date.now(), races = [], log = [] } = {}) {
 		super();
 		this.#roster = roster;
 		this.#startTime = startTime;
 		this.#races = [...races];
+		this.#log = [...log];
 		const players = [...roster];
 		this.playersPerTeam = players.filter(p => p.seed === 1).length;
 		if( this.playersPerTeam > 1) {
@@ -79,6 +98,7 @@ export class Mogi extends EventTarget {
 		if( !oldRace) throw new Error('Race not found');
 		const newRace = oldRace.withPlacements(placements);
 		this.#races.splice(idx, 1, newRace);
+		this.addLog({ level: 'info', race: idx + 1, key: 'raceEdited' });
 		this.triggerUpdate();
 		success(t('editRace.raceUpdated', { number: idx+1 }));
 	}
@@ -90,6 +110,7 @@ export class Mogi extends EventTarget {
 		const race = this.#races.at(idx);
 		if( !race) throw new Error('Race not found');
 		this.#races.splice(idx, 1);
+		this.addLog({ level: 'info', race: idx + 1, key: 'raceDeleted' });
 		this.triggerUpdate();
 		info(t('editRace.raceDeleted', { number: idx+1 }));
 	}

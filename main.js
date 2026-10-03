@@ -1,17 +1,19 @@
 import { initI18n, t } from "./src/i18n/i18n.js";
 import { RACE_COUNT } from "./src/mogi.js";
 import { resumeMogi, startMogi } from "./src/saved-mogis.js";
+import { setupSounds, soundsNeedClick } from "./src/ui/alerts.js";
 import { setupAutoCapture } from "./src/ui/autocapture-toggle.js";
 import { setupCameraList, setupCaptureButton } from "./src/ui/capture-button.js";
 import { connectExportButton } from "./src/ui/export-results-dialog.js";
 import { connectGallery } from "./src/ui/gallery.js";
 import { setupLocaleSwitcher } from "./src/ui/locale-switcher.js";
+import { connectLog } from "./src/ui/mogi-log.js";
 import { setupDebugOcrButton } from "./src/ui/ocr-debug-dialog.js";
 import { setupOverlay } from "./src/ui/overlay-toggle.js";
 import { requestSavedMogi } from "./src/ui/saved-mogis-list.js";
 import { connectScoreboard, connectScoreboardScreenshotter } from "./src/ui/scoreboard.js";
 import { requestRoster } from "./src/ui/set-roster-dialog.js";
-import { info } from "./src/ui/toast.js";
+import { info, warning } from "./src/ui/toast.js";
 import { isDebugMode } from "./src/util.js";
 
 async function main() {
@@ -37,6 +39,9 @@ async function main() {
 	const outputOl = /** @type {HTMLOListElement} */(document.getElementById('output'));
 	const scoreTable = /** @type {HTMLTableElement} */(document.getElementById('scoreTable'));
 	const raceGallery = /** @type {HTMLDivElement} */(document.getElementById('raceGallery'));
+	const soundsSelect = /** @type {HTMLSelectElement} */(document.getElementById('sounds'));
+	const logTitle = /** @type {HTMLElement} */(document.getElementById('mogiLogTitle'));
+	const logList = /** @type {HTMLOListElement} */(document.getElementById('mogiLog'));
 	const snapshotButton = /** @type {HTMLButtonElement} */(document.getElementById('snapshotScores'));
 	const exportBtn = /** @type {HTMLButtonElement} */(document.getElementById('exportScores'));
 	const downloadBtn = /** @type {HTMLButtonElement} */(document.getElementById('downloadMogi'));
@@ -61,11 +66,14 @@ async function main() {
 	connectScoreboardScreenshotter(snapshotButton, scoreTable);
 	connectExportButton(exportBtn, downloadBtn, mogi);
 	connectGallery(raceGallery, mogi);
+	connectLog(logTitle, logList, mogi);
+	setupSounds(soundsSelect);
 
 	if( isDebugMode() ) setupDebugOcrButton();
 
 	mogi.triggerUpdate(); // render everything (and save) now that it's all connected
 	if( mogi.size > 0 && !mogi.ended ) info(t('savedMogis.resumed', { count: mogi.size, total: RACE_COUNT }));
+	if( !mogi.ended && soundsNeedClick() ) warning(t('capture.soundsNeedClick'), { timeout: 20000 });
 }
 
 main();

@@ -6,7 +6,7 @@
  */
 
 import { t } from "./i18n/i18n.js";
-import { Mogi } from "./mogi.js";
+import { Mogi, RACE_COUNT } from "./mogi.js";
 import { Player, Substitute } from "./player.js";
 import { Placement, Race } from "./race.js";
 import { Roster } from "./roster.js";
@@ -38,6 +38,7 @@ import { warning } from "./ui/toast.js";
  * @typedef {Object} SavedRace
  * @prop {number} timestamp
  * @prop {SavedPlacement[]} placements
+ * @prop {import("./race.js").GameScore[]} [gameScores]
  *
  * @typedef {Object} SavedStanding
  * @prop {string} name player, or team tag/players
@@ -53,6 +54,7 @@ import { warning } from "./ui/toast.js";
  * @prop {SavedPlayer[]} players
  * @prop {{seed:number, index:number, tag:string}[]} teams
  * @prop {SavedRace[]} races
+ * @prop {import("./mogi.js").LogEntry[]} [log]
  * @prop {{playersPerTeam:number, raceCount:number, ended:boolean, standings:SavedStanding[]}} summary for listing without rebuilding the mogi
  *
  * @typedef {Object} Session
@@ -151,8 +153,10 @@ function serialize(mogi, id) {
 				ocrText: p.ocrText,
 				ocrConfidence: p.ocrConfidence,
 				dc: p.dc
-			}))
+			})),
+			gameScores: r.gameScores
 		})),
+		log: mogi.log,
 		summary: {
 			playersPerTeam: mogi.playersPerTeam,
 			raceCount: mogi.size,
@@ -199,13 +203,15 @@ function keepSaved(mogi, id, storedSnapshots, isSaved) {
 		lastSaved = json;
 	}
 
-	mogi.addEventListener('update', () => {
+	const saveSoon = () => {
 		queue = queue.then(save).catch(err => {
 			console.error('Could not save mogi', err);
 			if (!warned) warning(t('savedMogis.saveFailed'));
 			warned = true;
 		});
-	});
+	};
+	mogi.addEventListener('update', saveSoon);
+	mogi.addEventListener('log', saveSoon);
 }
 
 /** @returns {Promise<SavedMogi[]>} newest first */
@@ -230,6 +236,7 @@ export async function deleteSavedMogi(id) {
  */
 export async function startMogi(roster) {
 	const mogi = new Mogi(roster);
+	mogi.addLog({ level: 'info', race: null, key: 'mogiStarted' });
 	const id = `${mogi.startDate.getTime().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 	try {
 		// Clear out mogis that never got a race in (the roster was pasted, then abandoned), and the oldest ones
@@ -272,10 +279,10 @@ export async function resumeMogi(id) {
 		const blob = blobs[i];
 		if (blob instanceof Blob) storedSnapshots.add(snapshotKey(id, r.timestamp));
 		const placements = r.placements.map(p => new Placement(p.placement, p.playerId, p.resolvedName, p.ocrText, p.ocrConfidence, p.dc));
-		return new Race(r.timestamp, placements, blob instanceof Blob ? URL.createObjectURL(blob) : MISSING_SNAPSHOT);
+		return new Race(r.timestamp, placements, blob instanceof Blob ? URL.createObjectURL(blob) : MISSING_SNAPSHOT, r.gameScores ?? []);
 	});
 
-	const mogi = new Mogi(Roster.restore(record, players), { startTime: record.startTime, races });
+	const mogi = new Mogi(Roster.restore(record, players), { startTime: record.startTime, races, log: record.log ?? [] });
 	for (const saved of record.teams) {
 		const team = mogi.teamBySeed(saved.seed);
 		if (!team) continue;
@@ -283,5 +290,6 @@ export async function resumeMogi(id) {
 		team.tag = saved.tag;
 	}
 	keepSaved(mogi, id, storedSnapshots, true);
+	mogi.addLog({ level: 'info', race: null, key: 'mogiReopened', vars: { count: mogi.size, total: RACE_COUNT } });
 	return { id, mogi };
 }

@@ -1,8 +1,11 @@
 /** @typedef {import("./mogi.js").Mogi} Mogi */
 
+import { MIN_POINTS_ROWS, readGameScores, scanPointsColumn } from "./autocapture.js";
 import { t } from "./i18n/i18n.js";
 import { OCR_GRID, processResultsScreen } from "./ocr.js";
 import { Race } from "./race.js";
+import { checkTotals } from "./totals-check.js";
+import { attention, playSaved } from "./ui/alerts.js";
 import { error, info } from "./ui/toast.js";
 import { ctx2d, rgb2hsv } from "./util.js";
 
@@ -75,41 +78,72 @@ export function snapshotBlobUrlFromCanvas(base) {
 	});
 }
 
+/** @type {Record<CaptureSource, string>} */
+const SAVED_LOG_KEYS = { auto: 'savedAuto', screenshot: 'savedScreenshot', manual: 'savedManual' };
+
 /**
  * Capture a frame and OCR the results screen.
+ * @typedef {'auto'|'screenshot'|'manual'} CaptureSource what triggered the capture
  * @param {HTMLVideoElement} video
  * @param {Mogi} mogi
- * @param {{quiet?:boolean}} [options] quiet: don't warn when no scoreboard is found (the caller will retry)
+ * @param {{quiet?:boolean, source?:CaptureSource}} [options] quiet: don't warn when no scoreboard is found (the caller will retry)
  * @returns {Promise<'ok'|'cancelled'|'no_scoreboard'|'error'>}
  */
-export async function captureResultsScreen(video, mogi, { quiet = false } = {}) {
+export async function captureResultsScreen(video, mogi, { quiet = false, source = 'manual' } = {}) {
+	const raceNumber = mogi.size + 1;
 	try {
 		const base = captureFrame(video);
+		const onAskUser = (/** @type {number} */ count) => attention(mogi, { level: 'warning', race: raceNumber, key: 'askedToMatch', vars: { count } });
 		// this may throw MANUAL_CANCELLED or NO_SCOREBOARD
-		const placements = await processResultsScreen(base, OCR_GRID.nameRects, mogi.roster, mogi.playersPerTeam >= 3);
+		const placements = await processResultsScreen(base, OCR_GRID.nameRects, mogi.roster, mogi.playersPerTeam >= 3, { onAskUser });
 		// Only if successful, make the snapshot and push the race
 		const snapshotUrl = await snapshotBlobUrlFromCanvas(base);
-		const race = new Race(Date.now(), placements, snapshotUrl);
+		// The "+N" column is only on the results screen, not on the standings that come after it
+		const isResultsScreen = scanPointsColumn(base).rows >= MIN_POINTS_ROWS;
+		const gameScores = isResultsScreen ? await readGameScores(base).catch(err => { console.error(err); return []; }) : [];
+		const race = new Race(Date.now(), placements, snapshotUrl, gameScores);
 		mogi.roster.lockIGNsFromPlacements(placements);
 		mogi.addRace(race);
+		mogi.addLog({ level: 'success', race: raceNumber, key: SAVED_LOG_KEYS[source] });
+		playSaved();
+		if( isResultsScreen ) reportTotals(mogi, mogi.size - 1);
+		else attention(mogi, { level: 'warning', race: raceNumber, key: 'notResultsScreen' });
 		return 'ok';
 	} catch (e) {
 		// If the user canceled manual resolve, just abort quietly
 		if (/** @type {any} */(e)?.code === 'MANUAL_CANCELLED') {
 			console.log('Capture canceled by user.');
 			info(t('capture.captureCancelled'));
+			mogi.addLog({ level: 'info', race: raceNumber, key: 'matchCancelled' });
 			return 'cancelled';
 		}
 		// If no scoreboard found, warn the user
 		if (/** @type {any} */(e)?.code === 'NO_SCOREBOARD') {
 			console.log('No scoreboard detected in frame.');
-			if( !quiet) error(t('capture.noScoreboardDetected'));
+			if( !quiet) attention(mogi, { level: 'error', race: raceNumber, key: 'noScoreboard' });
 			return 'no_scoreboard';
 		}
 		// Otherwise, surface the error
 		console.error(e);
-		error(t('capture.ocrFailed'));
+		attention(mogi, { level: 'error', race: raceNumber, key: 'ocrFailed' });
 		return 'error';
+	}
+}
+
+/**
+ * Compare the totals the game showed on a race's results screen with the races recorded before it.
+ * @param {Mogi} mogi
+ * @param {number} index
+ */
+function reportTotals(mogi, index) {
+	const check = checkTotals(mogi, index);
+	const race = index + 1;
+	if( check.result === 'ok' ) mogi.addLog({ level: 'success', race, key: 'totalsOk' });
+	else if( check.result === 'unknown' ) mogi.addLog({ level: 'info', race, key: 'totalsUnknown' });
+	else {
+		const details = check.mismatches.slice(0, 3).map(m => t('log.totalsDetail', m)).join('; ');
+		const races = check.from === check.to ? t('log.raceRef', { number: check.to }) : t('log.raceRange', { from: check.from, to: check.to });
+		attention(mogi, { level: 'warning', race, key: check.result === 'missed' ? 'totalsMissed' : 'totalsWrong', vars: { races, details } });
 	}
 }
 

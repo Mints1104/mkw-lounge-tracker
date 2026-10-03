@@ -4,6 +4,7 @@
  */
 
 import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
+import { formatLogEntry } from './ui/mogi-log.js';
 
 /**
  * @param {Mogi} mogi
@@ -67,6 +68,7 @@ async function createSessionZip(mogi) {
 	zip.file('manifest.json', manifest);
 	zip.file('roster.txt', rosterText);
 	zip.file('scores.txt', scoresText);
+	zip.file('log.txt', mogi.log.map(e => `${new Date(e.time).toLocaleTimeString()}  ${formatLogEntry(e)}`).join('\n') + '\n');
 
 	// -- snapshots (JPEG blobs from object URLs)
 	const races = mogi.races;

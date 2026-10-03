@@ -91,49 +91,82 @@ export function checkOverlay(source) {
  * It disappears once the screen transitions to the overall rankings, which makes it a
  * reliable way to tell the two apart.
  */
-const POINTS_RECTS = OCR_GRID.nameRects.map(r => ({ x: 1650, y: r.y, w: 90, h: r.h }));
+const pointsRects = () => columnRects(1650, 90);
+/** Rows of "+N" labels needed to count as the results screen; 10-player races are still valid */
+export const MIN_POINTS_ROWS = 10;
+/** Each player's total before this race, right of the "+N" column */
+const totalRects = () => columnRects(1735, 95);
+
+/** @type {Map<number, {x:number, y:number, w:number, h:number}[]>} */
+const columnRectsCache = new Map();
+/**
+ * One rect per row of the results screen, built on first use: ocr.js and capture.js import each
+ * other, so OCR_GRID may not exist yet while this module loads.
+ * @param {number} x
+ * @param {number} w
+ */
+function columnRects(x, w) {
+	let rects = columnRectsCache.get(x);
+	if (!rects) columnRectsCache.set(x, rects = OCR_GRID.nameRects.map(r => ({ x, y: r.y, w, h: r.h })));
+	return rects;
+}
 
 /**
  * @typedef {Object} PointsColumnScan
  * @prop {number} rows Number of rows that look like they contain text
  * @prop {Uint8Array} bits Binarized column (1 = text), for comparing consecutive frames
+ *
+ * @typedef {import("./race.js").GameScore} GameScore
  */
 
 /**
- * Cheap check, run on every poll: binarize each row of the points column and count the rows
- * that look like they hold a short, bright label.
- * The pills behind the labels are translucent, so the track shows through; rather than
- * splitting background from foreground, keep only the pixels close to the brightest ones,
- * which works for yellow-on-dark rows as well as the white-on-yellow highlighted row.
+ * Binarize one label: the pills behind the labels are translucent, so the track shows through;
+ * rather than splitting background from foreground, keep only the pixels close to the brightest
+ * ones, which works for yellow-on-dark rows as well as the white-on-yellow highlighted row.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {{x:number, y:number, w:number, h:number}} r
+ * @returns {{bits:Uint8Array, hasText:boolean}}
+ */
+function binarize(ctx, r) {
+	const size = r.w * r.h;
+	const { data } = ctx.getImageData(r.x, r.y, r.w, r.h);
+	const lum = new Uint8Array(size);
+	const hist = new Uint32Array(256);
+	for (let i = 0; i < size; i++) {
+		const y = (data[i*4] * 299 + data[i*4+1] * 587 + data[i*4+2] * 114) / 1000 | 0;
+		lum[i] = y;
+		hist[y]++;
+	}
+	const threshold = percentile(hist, size, 0.97) - 30;
+	const bits = new Uint8Array(size);
+	let fg = 0, fgSum = 0, bgSum = 0;
+	for (let i = 0; i < size; i++) {
+		if (lum[i] > threshold) { bits[i] = 1; fg++; fgSum += lum[i]; }
+		else bgSum += lum[i];
+	}
+	const bg = size - fg;
+	const contrast = fg && bg ? fgSum / fg - bgSum / bg : 0;
+	const fgRatio = fg / size;
+	// digits are thin strokes on a darker pill: clear contrast, small foreground
+	return { bits, hasText: contrast >= 45 && fgRatio >= 0.03 && fgRatio <= 0.3 };
+}
+
+/**
+ * Cheap check, run on every poll: count the rows of the points column that look like they
+ * hold a short, bright label.
  * @param {HTMLCanvasElement} frame
  * @returns {PointsColumnScan}
  */
 export function scanPointsColumn(frame) {
 	const ctx = ctx2d(frame, { willReadFrequently: true });
-	const size = POINTS_RECTS[0].w * POINTS_RECTS[0].h;
-	const bits = new Uint8Array(size * POINTS_RECTS.length);
-	const lum = new Uint8Array(size);
-	const hist = new Uint32Array(256);
+	const rects = pointsRects();
+	const size = rects[0].w * rects[0].h;
+	const bits = new Uint8Array(size * rects.length);
 	let rows = 0;
-	POINTS_RECTS.forEach((r, idx) => {
-		const { data } = ctx.getImageData(r.x, r.y, r.w, r.h);
-		hist.fill(0);
-		for (let i = 0; i < size; i++) {
-			const y = (data[i*4] * 299 + data[i*4+1] * 587 + data[i*4+2] * 114) / 1000 | 0;
-			lum[i] = y;
-			hist[y]++;
-		}
-		const threshold = percentile(hist, size, 0.97) - 30;
-		let fg = 0, fgSum = 0, bgSum = 0;
-		for (let i = 0; i < size; i++) {
-			if (lum[i] > threshold) { bits[idx*size + i] = 1; fg++; fgSum += lum[i]; }
-			else bgSum += lum[i];
-		}
-		const bg = size - fg;
-		const contrast = fg && bg ? fgSum / fg - bgSum / bg : 0;
-		const fgRatio = fg / size;
-		// digits are thin strokes on a darker pill: clear contrast, small foreground
-		if (contrast >= 45 && fgRatio >= 0.03 && fgRatio <= 0.3) rows++;
+	rects.forEach((r, idx) => {
+		const row = binarize(ctx, r);
+		bits.set(row.bits, idx * size);
+		if (row.hasText) rows++;
 	});
 	return { rows, bits };
 }
@@ -186,7 +219,35 @@ export function preloadResultsDetection() {
 	return Promise.all([getPointsWorker(), preloadOcr()]);
 }
 
-const pointsCanvas = document.createElement('canvas');
+const OCR_PAD = 12;
+/**
+ * Draw binarized labels as dark text on a light background, one under the other, for OCR.
+ * @param {Uint8Array[]} rows
+ * @param {number} w
+ * @param {number} h
+ * @param {HTMLCanvasElement} canvas
+ */
+function renderForOcr(rows, w, h, canvas) {
+	const pad = OCR_PAD;
+	canvas.width = w + pad * 2;
+	canvas.height = rows.length * (h + pad) + pad;
+	const ctx = ctx2d(canvas, { willReadFrequently: true });
+	const img = ctx.createImageData(canvas.width, canvas.height);
+	img.data.fill(255);
+	rows.forEach((bits, row) => {
+		for (let y = 0; y < h; y++) {
+			for (let x = 0; x < w; x++) {
+				if (!bits[y*w + x]) continue;
+				const o = ((pad + row * (h + pad) + y) * canvas.width + pad + x) * 4;
+				img.data[o] = img.data[o+1] = img.data[o+2] = 0;
+			}
+		}
+	});
+	ctx.putImageData(img, 0, 0);
+	return canvas;
+}
+
+const ocrCanvas = document.createElement('canvas');
 /**
  * Expensive check, only run once the cheap scan looks promising: OCR the points column and
  * count the rows that read as "+N".
@@ -194,24 +255,41 @@ const pointsCanvas = document.createElement('canvas');
  * @returns {Promise<number>}
  */
 export async function countPointsLabels(scan) {
-	const { w, h } = POINTS_RECTS[0];
-	const pad = 12;
-	pointsCanvas.width = w + pad * 2;
-	pointsCanvas.height = POINTS_RECTS.length * (h + pad) + pad;
-	const pctx = ctx2d(pointsCanvas, { willReadFrequently: true });
-	const img = pctx.createImageData(pointsCanvas.width, pointsCanvas.height);
-	img.data.fill(255);
-	for (let row = 0; row < POINTS_RECTS.length; row++) {
-		for (let y = 0; y < h; y++) {
-			for (let x = 0; x < w; x++) {
-				if (!scan.bits[row*w*h + y*w + x]) continue;
-				const o = ((pad + row * (h + pad) + y) * pointsCanvas.width + pad + x) * 4;
-				img.data[o] = img.data[o+1] = img.data[o+2] = 0; // dark text on light background
-			}
-		}
-	}
-	pctx.putImageData(img, 0, 0);
+	const rects = pointsRects();
+	const { w, h } = rects[0];
+	const rows = rects.map((_, i) => scan.bits.subarray(i * w * h, (i + 1) * w * h));
 	const worker = await getPointsWorker();
-	const { data } = await worker.recognize(pointsCanvas);
+	const { data } = await worker.recognize(renderForOcr(rows, w, h, ocrCanvas));
 	return String(data?.text ?? '').split('\n').filter(line => /^\+\d{1,2}$/.test(line.replace(/\s+/g, ''))).length;
+}
+
+/**
+ * Read the points each row got this race ("+N") and its total before this race, as the game shows them.
+ * @param {HTMLCanvasElement} frame a results screen
+ * @returns {Promise<GameScore[]>} one per row, top to bottom; null where nothing could be read
+ */
+export async function readGameScores(frame) {
+	const ctx = ctx2d(frame, { willReadFrequently: true });
+	const worker = await getPointsWorker();
+	/**
+	 * OCR a whole column at once, then match each line of text back to its row by position.
+	 * @param {{x:number, y:number, w:number, h:number}[]} rects
+	 * @param {RegExp} pattern
+	 */
+	const readColumn = async (rects, pattern) => {
+		const { w, h } = rects[0];
+		const rows = rects.map(r => binarize(ctx, r)).map(r => r.hasText ? r.bits : new Uint8Array(w * h));
+		const { data } = await worker.recognize(renderForOcr(rows, w, h, ocrCanvas));
+		/** @type {(number|null)[]} */
+		const values = rects.map(() => null);
+		for (const line of data?.lines ?? []) {
+			const row = Math.floor(((line.bbox.y0 + line.bbox.y1) / 2 - OCR_PAD) / (h + OCR_PAD));
+			const match = pattern.exec(String(line.text).replace(/\s+/g, ''));
+			if (match && row >= 0 && row < values.length) values[row] = Number(match[1]);
+		}
+		return values;
+	};
+	const points = await readColumn(pointsRects(), /^\+(\d{1,2})$/);
+	const totals = await readColumn(totalRects(), /^(\d{1,3})$/);
+	return points.map((p, i) => ({ points: p, total: totals[i] ?? null }));
 }

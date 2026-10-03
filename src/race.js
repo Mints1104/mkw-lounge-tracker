@@ -58,6 +58,13 @@ export class Placement {
 	}
 }
 
+/**
+ * What the game showed for a place on the results screen.
+ * @typedef {Object} GameScore
+ * @prop {number|null} points points for this race ("+N")
+ * @prop {number|null} total total before this race
+ */
+
 export class Race {
 	/** @type {number} */ #timestamp;
 	get timestamp() { return this.#timestamp; }
@@ -68,20 +75,26 @@ export class Race {
 	/** @type {string} */ #snapshotUrl;
 	get snapshotUrl() { return this.#snapshotUrl; }
 
+	/** @type {GameScore[]} */ #gameScores;
+	/** What the game showed for each place, by placement - 1; empty if it wasn't read */
+	get gameScores() { return [...this.#gameScores]; }
+
 	/**
 	 * @param {number} timestamp
 	 * @param {Placement[]} placements
 	 * @param {string} snapshotUrl
+	 * @param {GameScore[]} [gameScores]
 	 */
-	constructor(timestamp, placements, snapshotUrl) {
+	constructor(timestamp, placements, snapshotUrl, gameScores = []) {
 		this.#timestamp = timestamp;
 		this.#placements = placements;
 		this.#snapshotUrl = snapshotUrl;
+		this.#gameScores = gameScores;
 	}
 
 	/** @param {Placement[]} placements */
 	withPlacements(placements) {
-		return new Race(this.#timestamp, placements, this.#snapshotUrl);
+		return new Race(this.#timestamp, placements, this.#snapshotUrl, this.#gameScores);
 	}
 
 	/** @returns {Map<string,number>} Player ID => Score */
